@@ -1,16 +1,18 @@
 use mongodb::{bson::doc, options::ClientOptions, Client, Database};
 use tracing::info;
 
-use std::env::var;
+use std::{env::var, time::Duration};
 
 use crate::store::constant::{
-    MONGO_ADMIN_DATABASE, MONGO_HOST, MONGO_PASSWORD, MONGO_PORT, MONGO_USERNAME,
+    MONGO_ADMIN_DATABASE, MONGO_CONN_TIMEOUT, MONGO_HOST, MONGO_PASSWORD, MONGO_PORT,
+    MONGO_USERNAME,
 };
 
 use super::StoreError;
 
 #[derive(Debug, Clone)]
 pub struct StoreClient {
+    application_name: String,
     client: Client,
 }
 
@@ -18,13 +20,19 @@ impl StoreClient {
     pub async fn new(application_name: String) -> Result<StoreClient, StoreError> {
         let client = StoreClient::create_client(application_name.clone()).await?;
 
-        Ok(StoreClient { client })
+        Ok(StoreClient {
+            client,
+            application_name,
+        })
     }
 
     pub fn get_raw_client(&self) -> Client {
         self.client.clone()
     }
 
+    pub fn get_application_name(&self) -> &str {
+        &self.application_name
+    }
     pub fn get_db(&self, database_name: &str) -> Database {
         let client = self.get_raw_client();
         client.database(database_name)
@@ -43,6 +51,15 @@ impl StoreClient {
         .await
         .map_err(|e| StoreError { msg: e.to_string() })?;
         client_options.app_name = Some(application_name);
+        let timeout = var(MONGO_CONN_TIMEOUT)
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(|v| Duration::from_secs(v));
+        client_options.server_selection_timeout = timeout.clone();
+        client_options.connect_timeout = timeout;
+
+        tracing::info!("connecting to mongodb with options {client_options:?}");
+
         let client =
             Client::with_options(client_options).map_err(|e| StoreError { msg: e.to_string() })?;
 

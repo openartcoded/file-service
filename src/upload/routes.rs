@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::env::var;
+use std::env::{temp_dir, var};
 use std::path::{Path, PathBuf};
 
 use axum::extract::multipart::Field;
@@ -25,7 +25,12 @@ use super::domain::{
 };
 
 pub fn make_state(client: StoreClient) -> FileRouterState {
-    let share_drive_path: String = std::env::var(SHARE_DRIVE_PATH).unwrap();
+    let share_drive_path: String = std::env::var(SHARE_DRIVE_PATH).unwrap_or_else(|_| {
+        temp_dir()
+            .join(client.get_application_name())
+            .display()
+            .to_string()
+    });
     let collection_name: String =
         var(FILE_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("upload"));
     FileRouterState {

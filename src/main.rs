@@ -67,5 +67,6 @@ async fn main() {
         })
         .fallback(fallback);
 
+    tracing::info!("listening on {:?}", listener);
     axum::serve(listener, app).await.unwrap();
 }
