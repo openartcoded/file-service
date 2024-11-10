@@ -52,7 +52,7 @@ pub async fn metadata(
     let tenant = x_user_info
         .as_ref()
         .map(|u| &u.user_info)
-        .and_then(|u| u.tenant.clone());
+        .and_then(|u| u.group.clone());
     match FileService::get_file_upload(&id, tenant, &client, &collection).await {
         Some((_, upl)) => Json(upl).into_response(),
         None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
@@ -73,7 +73,7 @@ pub async fn download(
     let tenant = x_user_info
         .as_ref()
         .map(|u| &u.user_info)
-        .and_then(|u| u.tenant.clone());
+        .and_then(|u| u.group.clone());
     match FileService::get_file_upload(&id, tenant, &client, &collection).await {
         Some((repo, file)) => {
             let file_service = FileService {
@@ -163,7 +163,7 @@ pub async fn upload(
         let tenant = if upl.public_resource {
             PUBLIC_TENANT.into()
         } else {
-            x_user_info.tenant.unwrap()
+            x_user_info.group.unwrap()
         };
 
         let repository: StoreRepository<FileUpload> =
@@ -180,7 +180,7 @@ pub async fn upload(
         (StatusCode::OK, Json(upl)).into_response()
     } else {
         let mut uploads_resp = Vec::with_capacity(uploads.len());
-        let tenant = &x_user_info.tenant.unwrap();
+        let tenant = &x_user_info.group.unwrap();
         let repository: StoreRepository<FileUpload> =
             StoreRepository::get_repository(client, &collection.0, tenant).await;
         let file_service = FileService {

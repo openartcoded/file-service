@@ -49,7 +49,7 @@ pub async fn render(
     tracing::debug!("Template render route entered!");
     let tenant = x_user_info
         .user_info
-        .tenant
+        .group
         .as_ref()
         .cloned()
         .unwrap_or_else(|| PUBLIC_TENANT.to_string());
@@ -106,7 +106,7 @@ pub async fn find_by_context(
     let repository: StoreRepository<Template> = StoreRepository::get_repository(
         client,
         &collection.0,
-        &x_user_info.tenant.unwrap_or_else(|| PUBLIC_TENANT.into()),
+        &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
     )
     .await;
     match repository
@@ -133,7 +133,7 @@ pub async fn find_by_ids(
     let repository: StoreRepository<Template> = StoreRepository::get_repository(
         client,
         &collection.0,
-        &x_user_info.tenant.unwrap_or_else(|| PUBLIC_TENANT.into()),
+        &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
     )
     .await;
     match repository.find_by_ids(query_ids).await {
@@ -161,7 +161,7 @@ pub async fn upsert(
         tracing::error!("could not proceed upsert invoice. err: {e:?}");
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
     };
-    let Some(tenant) = x_user_info.tenant else {
+    let Some(tenant) = x_user_info.group else {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({
@@ -304,7 +304,7 @@ pub async fn delete_by_id(
     Path(templ_id): Path<String>,
 ) -> impl IntoResponse {
     tracing::debug!("Template delete one route entered!");
-    let Some(tenant) = x_user_info.tenant else {
+    let Some(tenant) = x_user_info.group else {
         return (
             StatusCode::FORBIDDEN,
             Json(json!({
@@ -347,7 +347,7 @@ pub async fn find_all(
     let repository: StoreRepository<Template> = StoreRepository::get_repository(
         client,
         &collection.0,
-        &x_user_info.tenant.unwrap_or_else(|| PUBLIC_TENANT.into()),
+        &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
     )
     .await;
     match repository.find_all().await {
@@ -372,7 +372,7 @@ pub async fn find_one(
     let repository: StoreRepository<Template> = StoreRepository::get_repository(
         client,
         &collection.0,
-        &x_user_info.tenant.unwrap_or_else(|| PUBLIC_TENANT.into()),
+        &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
     )
     .await;
 

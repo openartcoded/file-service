@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use axum::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
@@ -16,16 +18,11 @@ pub struct ExtractUserInfo {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserInfo {
-    pub id: String,
-    pub full_name: Option<String>,
-    pub given_name: Option<String>,
-    pub family_name: Option<String>,
-    pub middle_name: Option<String>,
-    pub username: Option<String>,
-    pub email: Option<String>,
-    pub roles: Vec<String>,
-    pub groups: Vec<String>,
-    pub tenant: Option<String>,
+    pub exp: u64,
+    pub iat: Option<usize>,
+    pub sub: Option<String>,
+    pub rol: Vec<String>,
+    pub group: Option<String>,
 }
 
 impl<'a> TryFrom<&'a str> for ExtractUserInfo {
@@ -46,6 +43,14 @@ impl<'a> TryFrom<&'a str> for ExtractUserInfo {
         r.ok_or(ServiceError(format!("could not extract token")))
     }
 }
+fn is_expired(timestamp: u64) -> bool {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs();
+
+    timestamp < now
+}
 #[async_trait]
 impl<B> FromRequestParts<B> for ExtractUserInfo
 where
@@ -60,6 +65,10 @@ where
                 .ok()
                 .and_then(|token| ExtractUserInfo::try_from(token).ok())
             {
+                Some(v) if is_expired(v.user_info.exp) => Err((
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({"error": "Unauthorized"})),
+                )),
                 Some(v) => Ok(v),
                 _ => Err((
                     StatusCode::BAD_REQUEST,
