@@ -1,8 +1,17 @@
+use std::{
+    os::unix::fs::MetadataExt,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
+
 use chrono::{Local, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::util::{IdGenerator, StoreCollection},
+    common::{
+        domain::ServiceError,
+        util::{IdGenerator, StoreCollection},
+    },
     store::StoreClient,
 };
 
@@ -24,6 +33,30 @@ pub struct FileUpload {
 }
 
 impl FileUpload {
+    pub async fn new(
+        path: &str,
+        file_name: &str,
+        correlation_id: Option<String>,
+        public_resource: bool,
+    ) -> Result<FileUpload, ServiceError> {
+        let path = PathBuf::from_str(path).map_err(|e| ServiceError(format!("{e}")))?;
+        let metadata = tokio::fs::metadata(path.as_path())
+            .await
+            .map_err(|e| ServiceError(format!("{e}")))?;
+        let mut f = FileUpload {
+            content_type: mime_guess::from_path(path.as_path())
+                .first_raw()
+                .map(|ct| ct.into()),
+            correlation_id,
+            original_filename: file_name.to_string(),
+            extension: path.extension().map(|s| s.to_string_lossy().to_string()),
+            size: metadata.size(),
+            public_resource,
+            ..Default::default()
+        };
+
+        Ok(f)
+    }
     pub fn is_image(&self) -> bool {
         self.content_type
             .as_ref()

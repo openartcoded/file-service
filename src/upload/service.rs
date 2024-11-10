@@ -9,14 +9,16 @@ use std::{
 use chrono::Local;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
-use tokio::fs::File;
+use tokio::{fs::File, io};
 
 use crate::{
     common::{
-        constant::{THUMB_HEIGHT, THUMB_WIDTH},
+        constant::{PUBLIC_TENANT, THUMB_HEIGHT, THUMB_WIDTH},
         domain::ServiceError,
+        user_header::ExtractUserInfo,
+        util::StoreCollection,
     },
-    store::{Repository, StoreRepository},
+    store::{Repository, StoreClient, StoreRepository},
     upload::soffice::{convert_to, ConvertType},
 };
 
@@ -47,6 +49,41 @@ pub fn get_thumb_height() -> u32 {
     })
 }
 impl FileService<'_> {
+    pub async fn get_file_upload(
+        id: &str,
+        tenant: Option<String>,
+        client: &StoreClient,
+        collection: &StoreCollection,
+    ) -> Option<(StoreRepository<FileUpload>, FileUpload)> {
+        async fn get_upload(
+            repository: &StoreRepository<FileUpload>,
+            id: &str,
+        ) -> Option<FileUpload> {
+            match repository.find_by_id(id).await {
+                Ok(Some(response)) => Some(response),
+                Ok(None) => None,
+                Err(e) => {
+                    tracing::error!("db error {e}");
+                    None
+                }
+            }
+        }
+
+        let public_repository: StoreRepository<FileUpload> =
+            StoreRepository::get_repository(client.clone(), &collection.0, PUBLIC_TENANT).await;
+
+        if let Some(fu) = get_upload(&public_repository, id).await {
+            Some((public_repository, fu))
+        } else if let Some(tenant) = tenant {
+            let private_repository: StoreRepository<FileUpload> =
+                StoreRepository::get_repository(client.clone(), &collection.0, &tenant).await;
+            get_upload(&private_repository, id)
+                .await
+                .map(|fu| (private_repository, fu))
+        } else {
+            None
+        }
+    }
     fn get_physical_path(&self, internal_name: &str) -> PathBuf {
         PathBuf::from(self.share_drive_path).join(internal_name)
     }
@@ -132,8 +169,6 @@ impl FileService<'_> {
             .map_err(|e| ServiceError::from(&e))?;
         Ok(Some(thumbnail.id))
     }
-}
-impl FileService<'_> {
     pub async fn upload(
         &self,
         mut upl: FileUpload,
@@ -209,5 +244,15 @@ impl FileService<'_> {
         tokio::fs::File::open(self.get_physical_path(&upl.internal_name))
             .await
             .map_err(|e| ServiceError::from(&e))
+    }
+    pub async fn download_bytes(&self, upl: &FileUpload) -> Result<Vec<u8>, ServiceError> {
+        use io::AsyncReadExt;
+        let mut download = self.download(upl).await?;
+        let mut bytes = Vec::with_capacity(1024);
+        download
+            .read_to_end(&mut bytes)
+            .await
+            .map_err(|e| ServiceError(format!("{e}")))?;
+        Ok(bytes)
     }
 }

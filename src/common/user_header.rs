@@ -7,7 +7,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::constant::X_USER_INFO_HEADER;
+use super::{constant::X_USER_INFO_HEADER, domain::ServiceError};
 
 pub struct ExtractUserInfo {
     pub user_info: UserInfo,
@@ -28,6 +28,24 @@ pub struct UserInfo {
     pub tenant: Option<String>,
 }
 
+impl<'a> TryFrom<&'a str> for ExtractUserInfo {
+    type Error = ServiceError;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        let r = base64::engine::general_purpose::STANDARD
+            .decode(value)
+            .map(|b| (value.to_string(), b))
+            .map(|(e, d)| {
+                serde_json::from_slice::<UserInfo>(&d)
+                    .map(|des| (e, des))
+                    .ok()
+            })
+            .ok()
+            .flatten()
+            .map(|(header, user_info)| ExtractUserInfo { user_info, header });
+        r.ok_or(ServiceError(format!("could not extract token")))
+    }
+}
 #[async_trait]
 impl<B> FromRequestParts<B> for ExtractUserInfo
 where
@@ -40,19 +58,9 @@ where
             match user_info
                 .to_str()
                 .ok()
-                .filter(|u| !u.trim().is_empty())
-                .and_then(|u| {
-                    base64::engine::general_purpose::STANDARD
-                        .decode(u)
-                        .map(|b| (u.to_string(), b))
-                        .ok()
-                })
-                .and_then(|(e, d)| {
-                    serde_json::from_slice::<UserInfo>(&d)
-                        .map(|des| (e, des))
-                        .ok()
-                }) {
-                Some((header, user_info)) => Ok(ExtractUserInfo { user_info, header }),
+                .and_then(|token| ExtractUserInfo::try_from(token).ok())
+            {
+                Some(v) => Ok(v),
                 _ => Err((
                     StatusCode::BAD_REQUEST,
                     Json(json!({"error":"X-USER-INFO is invalid"})),

@@ -49,7 +49,11 @@ pub async fn metadata(
 ) -> impl IntoResponse {
     tracing::debug!("Metadata route entered!");
 
-    match get_file_upload(&id, &x_user_info, &client, &collection).await {
+    let tenant = x_user_info
+        .as_ref()
+        .map(|u| &u.user_info)
+        .and_then(|u| u.tenant.clone());
+    match FileService::get_file_upload(&id, tenant, &client, &collection).await {
         Some((_, upl)) => Json(upl).into_response(),
         None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
     }
@@ -66,8 +70,11 @@ pub async fn download(
     tracing::debug!("Download route entered!");
 
     tracing::debug!("trying to fetch document with id {id}");
-
-    match get_file_upload(&id, &x_user_info, &client, &collection).await {
+    let tenant = x_user_info
+        .as_ref()
+        .map(|u| &u.user_info)
+        .and_then(|u| u.tenant.clone());
+    match FileService::get_file_upload(&id, tenant, &client, &collection).await {
         Some((repo, file)) => {
             let file_service = FileService {
                 share_drive_path: &share_drive,
@@ -221,40 +228,4 @@ async fn write_field_to_temp_file<'a>(
     }
     let metadata = temp_file.metadata().await.unwrap();
     (temp_file_path, metadata.len())
-}
-async fn get_file_upload(
-    id: &str,
-    x_user_info: &Option<ExtractUserInfo>,
-    client: &StoreClient,
-    collection: &StoreCollection,
-) -> Option<(StoreRepository<FileUpload>, FileUpload)> {
-    async fn get_upload(repository: &StoreRepository<FileUpload>, id: &str) -> Option<FileUpload> {
-        match repository.find_by_id(id).await {
-            Ok(Some(response)) => Some(response),
-            Ok(None) => None,
-            Err(e) => {
-                tracing::error!("db error {e}");
-                None
-            }
-        }
-    }
-
-    let public_repository: StoreRepository<FileUpload> =
-        StoreRepository::get_repository(client.clone(), &collection.0, PUBLIC_TENANT).await;
-
-    if let Some(fu) = get_upload(&public_repository, id).await {
-        Some((public_repository, fu))
-    } else if let Some(tenant) = x_user_info
-        .as_ref()
-        .map(|u| &u.user_info)
-        .and_then(|u| u.tenant.clone())
-    {
-        let private_repository: StoreRepository<FileUpload> =
-            StoreRepository::get_repository(client.clone(), &collection.0, &tenant).await;
-        get_upload(&private_repository, id)
-            .await
-            .map(|fu| (private_repository, fu))
-    } else {
-        None
-    }
 }

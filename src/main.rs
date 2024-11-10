@@ -4,7 +4,7 @@ use std::{env::var, net::SocketAddr, str::FromStr};
 use axum::{
     extract::FromRef,
     http::StatusCode,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use common::{
@@ -12,6 +12,7 @@ use common::{
     util::setup_tracing,
 };
 use store::StoreClient;
+use template::domain::TemplRouterState;
 use tower_http::{
     limit::RequestBodyLimitLayer,
     trace::{DefaultMakeSpan, TraceLayer},
@@ -20,6 +21,7 @@ use upload::domain::FileRouterState;
 
 mod common;
 mod store;
+mod template;
 mod upload;
 async fn fallback() -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "Not Found")
@@ -28,6 +30,7 @@ async fn fallback() -> (StatusCode, &'static str) {
 #[derive(Clone)]
 struct AppState {
     file_state: FileRouterState,
+    templ_state: TemplRouterState,
 }
 impl FromRef<AppState> for FileRouterState {
     fn from_ref(app_state: &AppState) -> FileRouterState {
@@ -35,6 +38,21 @@ impl FromRef<AppState> for FileRouterState {
     }
 }
 
+impl FromRef<AppState> for TemplRouterState {
+    fn from_ref(app_state: &AppState) -> TemplRouterState {
+        app_state.templ_state.clone()
+    }
+}
+fn get_templ_router() -> Router<AppState> {
+    Router::new()
+        .route("/find-all", get(template::routes::find_all))
+        .route("/find-by-ids", post(template::routes::find_by_ids))
+        .route("/find-by-context", get(template::routes::find_by_context))
+        .route("/find-one/:templ_id", get(template::routes::find_one))
+        .route("/delete/:templ_id", delete(template::routes::delete_by_id))
+        .route("/render", post(template::routes::render))
+        .route("/", post(template::routes::upsert))
+}
 fn get_file_router() -> Router<AppState> {
     let body_size_limit = (var("BODY_SIZE_LIMIT").unwrap_or_else(|_| "1024".into()))
         .parse::<usize>()
@@ -58,12 +76,14 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     let app = Router::new()
         .nest("/api/v1/upload", get_file_router())
+        .nest("/api/v1/template", get_templ_router())
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         )
         .with_state(AppState {
-            file_state: upload::routes::make_state(client),
+            file_state: upload::routes::make_state(client.clone()),
+            templ_state: template::routes::make_state(client),
         })
         .fallback(fallback);
 
