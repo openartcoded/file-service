@@ -260,9 +260,6 @@ pub async fn upsert(
         .build();
 
     if let Some(mut field) = form.next_field().await.unwrap() {
-        let mut file = tokio::fs::File::create("example.txt").await.unwrap();
-        file.write_all(b"Hello, Tokio!").await.unwrap();
-        println!("File created and written to.");
         let file_name = field.file_name().unwrap().to_string();
         let temp_path = temp_dir().join(format!("{}_{}", IdGenerator.get(), &file_name));
         tracing::debug!("{temp_path:?}");
@@ -296,10 +293,6 @@ pub async fn upsert(
             store: &repository,
         };
 
-        println!(
-            "fucking rust {}",
-            std::fs::read_to_string(&temp_path).unwrap()
-        );
         let upl = file_service
             .upload(
                 FileUpload::new(
@@ -450,4 +443,3 @@ pub async fn find_one(
             .into_response(),
     }
 }
-
