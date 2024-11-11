@@ -12,12 +12,14 @@ use common::{
     util::setup_tracing,
 };
 use store::StoreClient;
-use template::domain::{TemplRouterState, TemplateType};
+use template::domain::{Context, TemplRouterState, Template, TemplateType, TemplateUpsert};
 use tower_http::{
     limit::RequestBodyLimitLayer,
     trace::{DefaultMakeSpan, TraceLayer},
 };
-use upload::domain::FileRouterState;
+use upload::domain::{
+    DownloadFileRequestUriParams, FileRouterState, FileUpload, UploadFileRequestUriParams,
+};
 use utoipa::{
     openapi::{
         self,
@@ -55,8 +57,8 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Köfte Api V1"),
-    components(schemas(TemplateType)),
+    info(description = "Köfte Api V1", title="Köfte",version="0.1", license(identifier="MIT")),
+    components(schemas(TemplateType, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
         upload::routes::download,

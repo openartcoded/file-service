@@ -12,7 +12,7 @@ use crate::{
     store::StoreClient,
 };
 
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Template {
     #[serde(rename = "_id")]

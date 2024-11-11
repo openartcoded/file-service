@@ -16,7 +16,7 @@ use crate::{
     store::StoreClient,
 };
 
-#[derive(Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUpload {
     #[serde(rename = "_id")]

@@ -1,12 +1,13 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "kofte-rs",
+    "title": "Köfte",
     "description": "Köfte Api V1",
     "license": {
-      "name": ""
+      "name": "",
+      "identifier": "MIT"
     },
-    "version": "0.1.0"
+    "version": "0.1"
   },
   "paths": {
     "/api/v1/template": {
@@ -450,6 +451,82 @@
           "INVOICE"
         ]
       },
+      "DownloadFileRequestUriParams": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "FileUpload": {
+        "type": "object",
+        "required": [
+          "_id",
+          "creationDate",
+          "originalFilename",
+          "internalName",
+          "size",
+          "publicResource"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correlationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "extension": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "internalName": {
+            "type": "string"
+          },
+          "originalFilename": {
+            "type": "string"
+          },
+          "publicResource": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "thumbnailId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "RenderRequest": {
         "type": "object",
         "required": [
@@ -471,11 +548,110 @@
           }
         }
       },
+      "Template": {
+        "type": "object",
+        "required": [
+          "_id",
+          "creationDate",
+          "fileId",
+          "templateType",
+          "templateContext",
+          "title"
+        ],
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "creationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "templateContext": {
+            "$ref": "#/components/schemas/Context"
+          },
+          "templateType": {
+            "$ref": "#/components/schemas/TemplateType"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "TemplateType": {
         "type": "string",
         "enum": [
           "HTML"
         ]
+      },
+      "TemplateUpsert": {
+        "type": "object",
+        "required": [
+          "title",
+          "templateType",
+          "templateContext"
+        ],
+        "properties": {
+          "_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "templateContext": {
+            "$ref": "#/components/schemas/Context"
+          },
+          "templateType": {
+            "$ref": "#/components/schemas/TemplateType"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "UploadFileRequestUriParams": {
+        "type": "object",
+        "properties": {
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_public": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
       }
     },
     "securitySchemes": {
