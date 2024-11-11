@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Greet</title>
+  </head>
+  <body>
+    <p>Greeting, {{name}}! You are {{age}} years old!</p>
+    <ul>
+      {% for stock in stuff.stocks %}
+      <li>{{stock}}</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

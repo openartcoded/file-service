@@ -9,6 +9,7 @@ axum = { version = "0.7.7", features = ["multipart"] }
 axum-extra = { version = "0.9.4", features = ["query", "typed-header"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.38", features = ["serde"] }
+dirs = "5.0.1"
 futures = "0.3.31"
 futures-util = "0.3.31"
 headless_chrome = "1.0.15"

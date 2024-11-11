@@ -1,6 +1,11 @@
+use core::panic;
 use std::{
     env::var,
     error::Error,
+    ffi::OsString,
+    fmt::Debug,
+    path::PathBuf,
+    str::FromStr,
     sync::{Arc, OnceLock},
     time::Duration,
 };
@@ -31,7 +36,7 @@ pub fn init() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn render<T: Serialize>(
+pub async fn render<T: Serialize + Debug>(
     templ: &Template,
     templ_ctx: &T,
     file_router_state: &FileRouterState,
@@ -55,7 +60,7 @@ pub async fn render<T: Serialize>(
             let pdf = match templ.template_type {
                 TemplateType::Html => html_to_pdf(&templ_bytes, templ_ctx).await,
             }
-            .map_err(|e| ServiceError(format!("{e}")))?;
+            .map_err(|e| ServiceError(format!("cannot convert html to pdf: {e} {templ_ctx:?}")))?;
 
             Ok(pdf)
         }
@@ -69,12 +74,19 @@ pub async fn render<T: Serialize>(
 async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8>, Box<dyn Error>> {
     let engine = get_jinja_engine();
 
+    tracing::debug!("{}", String::from_utf8_lossy(templ));
     let html = engine.render_str(std::str::from_utf8(templ)?, templ_ctx)?;
     let tab = get_chromium_tab()?;
 
-    let temp_html_file_path = std::env::temp_dir().join(format!("{}.html", IdGenerator.get()));
+    let temp_html_file_path = dirs::home_dir()
+        .unwrap_or_else(|| std::env::temp_dir())
+        .join(format!("{}.html", IdGenerator.get()));
+    tracing::debug!("{temp_html_file_path:?}");
+    tokio::fs::File::create(&temp_html_file_path).await?;
     tokio::fs::write(&temp_html_file_path, html).await?;
     let page = format!("file://{}", temp_html_file_path.display());
+    tracing::debug!("{page}");
+
     tracing::info!("generate pdf from html page {page}");
     let pdf = tab
         .navigate_to(&page)?
@@ -162,13 +174,13 @@ mod test {
                 "stocks": ["apple", "bananas", "tomatos"]
 
             }
-
-
             }),
         )
         .await
         .unwrap();
-        let p = std::env::temp_dir().join(format!("{}.pdf", IdGenerator.get()));
+        let p = dirs::home_dir()
+            .unwrap_or_else(|| std::env::temp_dir())
+            .join(format!("{}.pdf", IdGenerator.get()));
         tokio::fs::write(&p, res).await.unwrap();
         println!("path {p:?}");
     }

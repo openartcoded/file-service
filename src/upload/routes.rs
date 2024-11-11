@@ -27,11 +27,13 @@ use super::domain::{
 
 pub async fn make_state(client: StoreClient) -> FileRouterState {
     let share_drive_path: String = std::env::var(SHARE_DRIVE_PATH).unwrap_or_else(|_| {
-        temp_dir()
+        dirs::home_dir()
+            .unwrap_or_else(|| std::env::temp_dir())
             .join(client.get_application_name())
             .display()
             .to_string()
     });
+    tracing::info!("share path: {}", share_drive_path);
     if !PathBuf::from_str(&share_drive_path).unwrap().exists() {
         tokio::fs::create_dir(&share_drive_path).await.unwrap();
     }

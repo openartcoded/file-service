@@ -1,0 +1,16 @@
+{
+  "context": {
+    "name": "Nordine",
+    "age": 12,
+    "stuff": {
+      "stocks": [
+        "apple",
+        "bananas",
+        "tomatos"
+      ]
+    }
+  },
+  "fileName": "bim.pdf",
+  "templateContext": "INVOICE",
+  "templateId": "14be1836-945b-4621-ac3b-d533ffa10183"
+}

@@ -9,14 +9,17 @@ pub async fn convert_to(
     let input_path: PathBuf = input_path.into();
     tracing::debug!("convert file {input_path:?}");
     let input_path_str = &input_path.display().to_string();
-    let temp_dir = &std::env::temp_dir().display().to_string();
+    let temp_dir = dirs::home_dir()
+        .unwrap_or_else(|| std::env::temp_dir())
+        .display()
+        .to_string();
     let output = Command::new("soffice")
         .args([
             "--headless",
             "--convert-to",
             to.to_str(),
             "--outdir",
-            temp_dir,
+            &temp_dir,
             input_path_str,
         ])
         .stdout(Stdio::piped())
