@@ -10,7 +10,7 @@ use axum::extract::multipart::Field;
 use chrono::Local;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
-use mongodb::bson::doc;
+use mongodb::bson::{doc, Document};
 use tokio::{
     fs::File,
     io::{self, AsyncWriteExt},
@@ -147,14 +147,22 @@ impl FileService<'_> {
             cursor
                 .read_to_end(&mut thumb)
                 .map_err(|e| ServiceError(format!("{e}")))?;
-            (upl.extension.clone(), thumb)
+            (image_format.extensions_str().join("."), thumb)
+        };
+
+        let thumb_filename = if Some(&extension) != upl.extension.as_ref() {
+            format!("thumb-{internal_name}.{extension}")
+        } else {
+            format!("thumb-{internal_name}")
         };
         let thumbnail = FileUpload {
-            content_type: upl.content_type.clone(),
+            content_type: mime_guess::from_ext(&extension)
+                .first_raw()
+                .map(|m| m.into()),
             thumbnail_id: None,
-            original_filename: format!("thumb-{internal_name}"),
-            internal_name: format!("thumb-{internal_name}"),
-            extension,
+            original_filename: thumb_filename.clone(),
+            internal_name: thumb_filename,
+            extension: Some(extension),
             size: thumb.len() as u64,
             public_resource: upl.public_resource,
             correlation_id: Some(upl.id.clone()),
@@ -246,10 +254,10 @@ impl FileService<'_> {
             .map_err(|e| ServiceError::from(&e))?;
         Ok(upl)
     }
-    pub async fn delete_by_correlation_id(&self, id: &str) -> Result<(), ServiceError> {
+    pub async fn delete_by(&self, query: Document) -> Result<(), ServiceError> {
         let upls = self
             .store
-            .find_by_query(doc! {"correlationId": id}, None)
+            .find_by_query(query, None)
             .await
             .map_err(|e| ServiceError::from(&e))?;
         for upl in upls {
@@ -261,8 +269,27 @@ impl FileService<'_> {
             {
                 tracing::error!("could not delete file {upl:?} => {e}");
             };
+            if let Some(thumb_id) = &upl.thumbnail_id {
+                if let Ok(Some(thumb)) = self.store.find_by_id(thumb_id).await {
+                    self.store
+                        .delete_by_id(&thumb.id)
+                        .await
+                        .map_err(|e| ServiceError::from(&e))?;
+                    if let Err(e) =
+                        tokio::fs::remove_file(self.get_physical_path(&thumb.internal_name)).await
+                    {
+                        tracing::error!("could not delete thumb file {upl:?} => {e}");
+                    };
+                }
+            }
         }
         Ok(())
+    }
+    pub async fn delete_by_correlation_id(&self, id: &str) -> Result<(), ServiceError> {
+        self.delete_by(doc! {"correlationId": id}).await
+    }
+    pub async fn delete_by_id(&self, id: &str) -> Result<(), ServiceError> {
+        self.delete_by(doc! {"_id": id}).await
     }
     pub async fn download(&self, upl: &FileUpload) -> Result<File, ServiceError> {
         tokio::fs::File::open(self.get_physical_path(&upl.internal_name))

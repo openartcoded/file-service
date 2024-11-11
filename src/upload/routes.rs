@@ -16,7 +16,7 @@ use tokio_util::io::ReaderStream;
 
 use crate::common::constant::{FILE_SERVICE_COLLECTION_NAME, PUBLIC_TENANT, SHARE_DRIVE_PATH};
 use crate::common::user_header::ExtractUserInfo;
-use crate::common::util::StoreCollection;
+use crate::common::util::{OpenApiDocUploadForm, StoreCollection};
 use crate::store::{Repository, StoreClient, StoreRepository};
 use crate::upload::service::{write_field_to_temp_file, FileService};
 
@@ -45,7 +45,15 @@ pub async fn make_state(client: StoreClient) -> FileRouterState {
         collection: StoreCollection(collection_name),
     }
 }
-
+#[utoipa::path(
+    get,
+    path = "/api/v1/upload/metadata",
+    params(DownloadFileRequestUriParams),
+    responses(
+        (status = 200, description = "Get upload metadata")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn metadata(
     State(FileRouterState {
         client, collection, ..
@@ -64,6 +72,16 @@ pub async fn metadata(
         None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
     }
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/upload/download",
+    params(DownloadFileRequestUriParams),
+    responses(
+        (status = 200, description = "Download file")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn download(
     State(FileRouterState {
         client,
@@ -112,6 +130,14 @@ pub async fn download(
         None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
     }
 }
+#[utoipa::path(
+    delete,
+    path = "/api/v1/upload/{id}",
+    responses(
+        (status = 200, description = "Delete a file by id")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn delete_by_id(
     State(FileRouterState {
         client,
@@ -139,8 +165,8 @@ pub async fn delete_by_id(
         share_drive_path: &share_drive,
         store: &fs_repository,
     };
-    if let Err(e) = file_service.delete_by_correlation_id(&upl_id).await {
-        tracing::error!("could not delete files linked to templ {e:?}");
+    if let Err(e) = file_service.delete_by_id(&upl_id).await {
+        tracing::error!("could not delete files {e:?}");
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
@@ -156,6 +182,16 @@ pub async fn delete_by_id(
         )
     }
 }
+#[utoipa::path(
+    post,
+    path = "/api/v1/upload",
+    params(UploadFileRequestUriParams),
+    request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
+    responses(
+        (status = 200, description = "Upload a file")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn upload(
     State(FileRouterState {
         client,

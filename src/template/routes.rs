@@ -35,7 +35,9 @@ use crate::{
     },
 };
 
-use super::domain::{ContextQuery, RenderRequest, TemplRouterState, TemplateUpsert};
+use super::domain::{
+    ContextQuery, RenderRequest, TemplRouterState, TemplateTypeQuery, TemplateUpsert,
+};
 
 pub fn make_state(client: StoreClient) -> TemplRouterState {
     let collection_name: String =
@@ -99,6 +101,42 @@ pub async fn render(
             Json(json!({"error": "template not found"})),
         )
             .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/template/find-by-type",
+    params(TemplateTypeQuery),
+    responses(
+        (status = 200, description = "Find templates by type")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn find_by_type(
+    State(TemplRouterState { collection, client }): State<TemplRouterState>,
+    ExtractUserInfo {
+        user_info: x_user_info,
+        ..
+    }: ExtractUserInfo,
+    Query(templ_type): Query<TemplateTypeQuery>,
+) -> impl IntoResponse {
+    tracing::debug!("Template find by context route entered!");
+    let repository: StoreRepository<Template> = StoreRepository::get_repository(
+        client,
+        &collection.0,
+        &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
+    )
+    .await;
+    let templ_type = templ_type.template_type.to_string();
+    let query = doc! {"templateType": templ_type};
+    match repository.find_by_query(query, None).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": e.to_string()})),
@@ -327,13 +365,13 @@ pub async fn upsert(
 
 #[utoipa::path(
     delete,
-    path = "/api/v1/template/delete/{templ_id}",
+    path = "/api/v1/template/{id}",
     responses(
-        (status = 200, description = "Delete a template by id")
+        (status = 204, description = "Delete a template by id")
     ),
     security(("bearerAuth" = []))
 )]
-pub async fn delete_by_id(
+pub async fn delete_templ_by_id(
     State(fs): State<FileRouterState>,
     State(TemplRouterState { client, collection }): State<TemplRouterState>,
     ExtractUserInfo {

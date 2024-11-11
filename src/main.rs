@@ -12,7 +12,7 @@ use common::{
     util::setup_tracing,
 };
 use store::StoreClient;
-use template::domain::TemplRouterState;
+use template::domain::{TemplRouterState, TemplateType};
 use tower_http::{
     limit::RequestBodyLimitLayer,
     trace::{DefaultMakeSpan, TraceLayer},
@@ -56,12 +56,18 @@ impl FromRef<AppState> for TemplRouterState {
 #[derive(OpenApi)]
 #[openapi(
     info(description = "Köfte Api V1"),
+    components(schemas(TemplateType)),
     paths(
+        upload::routes::metadata,
+        upload::routes::download,
+        upload::routes::upload,
+        upload::routes::delete_by_id,
         template::routes::find_all,
         template::routes::find_by_ids,
         template::routes::find_by_context,
+        template::routes::find_by_type,
         template::routes::find_one,
-        template::routes::delete_by_id,
+        template::routes::delete_templ_by_id,
         template::routes::render,
         template::routes::upsert
     ),
@@ -85,8 +91,9 @@ fn get_templ_router() -> Router<AppState> {
         .route("/find-all", get(template::routes::find_all))
         .route("/find-by-ids", get(template::routes::find_by_ids))
         .route("/find-by-context", get(template::routes::find_by_context))
+        .route("/find-by-type", get(template::routes::find_by_type))
         .route("/find-one/:templ_id", get(template::routes::find_one))
-        .route("/delete/:templ_id", delete(template::routes::delete_by_id))
+        .route("/:templ_id", delete(template::routes::delete_templ_by_id))
         .route("/render", post(template::routes::render))
         .route("/", post(template::routes::upsert))
 }
@@ -95,10 +102,10 @@ fn get_file_router() -> Router<AppState> {
         .parse::<usize>()
         .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
     Router::new()
-        .route("/upload", post(upload::routes::upload))
-        .route("/delete/:upl_id", post(upload::routes::delete_by_id))
+        .route("/:upl_id", delete(upload::routes::delete_by_id))
         .route("/download", get(upload::routes::download))
         .route("/metadata", get(upload::routes::metadata))
+        .route("/", post(upload::routes::upload))
         .layer(RequestBodyLimitLayer::new(body_size_limit))
 }
 

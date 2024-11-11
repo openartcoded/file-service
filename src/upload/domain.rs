@@ -6,6 +6,7 @@ use std::{
 
 use chrono::{Local, NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     common::{
@@ -82,14 +83,14 @@ impl Default for FileUpload {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, IntoParams, ToSchema)]
 pub struct UploadFileRequestUriParams {
     pub correlation_id: Option<String>,
     pub id: Option<String>,
     pub is_public: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, IntoParams, ToSchema)]
 pub struct DownloadFileRequestUriParams {
     pub id: String,
 }

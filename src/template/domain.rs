@@ -54,6 +54,11 @@ impl Display for TemplateType {
 pub struct ContextQuery {
     pub context: Context,
 }
+
+#[derive(Deserialize, ToSchema, IntoParams)]
+pub struct TemplateTypeQuery {
+    pub template_type: TemplateType,
+}
 #[derive(Serialize, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderRequest {
