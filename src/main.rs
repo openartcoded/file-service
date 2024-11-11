@@ -119,6 +119,10 @@ async fn main() {
     let client = StoreClient::new(app_name).await.unwrap();
     tracing::info!("listening on {:?}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    let api_doc = ApiDoc::openapi();
+    // tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
+    //     .await
+    //     .unwrap();
     let app = Router::new()
         .nest("/api/v1/upload", get_file_router())
         .nest("/api/v1/template", get_templ_router())
@@ -130,7 +134,7 @@ async fn main() {
             file_state: upload::routes::make_state(client.clone()).await,
             templ_state: template::routes::make_state(client),
         })
-        .merge(SwaggerUi::new("/openapi").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/openapi").url("/api-docs/openapi.json", api_doc))
         .fallback(fallback);
 
     tracing::info!("listening on {:?}", listener);

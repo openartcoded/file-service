@@ -1,0 +1,488 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "kofte-rs",
+    "description": "Köfte Api V1",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/template": {
+      "post": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "upsert",
+        "parameters": [
+          {
+            "name": "_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "templateType",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TemplateType"
+            }
+          },
+          {
+            "name": "templateContext",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Context"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file_bytes"
+                ],
+                "properties": {
+                  "file_bytes": {
+                    "type": "string",
+                    "format": "binary",
+                    "contentMediaType": "application/octet-stream"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Upsert a template"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/find-all": {
+      "get": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "find_all",
+        "responses": {
+          "200": {
+            "description": "Find all templates"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/find-by-context": {
+      "get": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "find_by_context",
+        "parameters": [
+          {
+            "name": "context",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Context"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Find templates by context"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/find-by-ids": {
+      "get": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "find_by_ids",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Find By ids"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/find-by-type": {
+      "get": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "find_by_type",
+        "parameters": [
+          {
+            "name": "template_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TemplateType"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Find templates by type"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/find-one/{templ_id}": {
+      "get": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "find_one",
+        "parameters": [
+          {
+            "name": "templ_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Find a template by id"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/render": {
+      "post": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "render",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Render template"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/template/{id}": {
+      "delete": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "delete_templ_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Delete a template by id"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload": {
+      "post": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "correlation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "is_public",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file_bytes"
+                ],
+                "properties": {
+                  "file_bytes": {
+                    "type": "string",
+                    "format": "binary",
+                    "contentMediaType": "application/octet-stream"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Upload a file"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/download": {
+      "get": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Download file"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/metadata": {
+      "get": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "metadata",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get upload metadata"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/upload/{id}": {
+      "delete": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "delete_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delete a file by id"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Context": {
+        "type": "string",
+        "enum": [
+          "INVOICE"
+        ]
+      },
+      "RenderRequest": {
+        "type": "object",
+        "required": [
+          "templateId",
+          "context",
+          "fileName",
+          "templateContext"
+        ],
+        "properties": {
+          "context": {},
+          "fileName": {
+            "type": "string"
+          },
+          "templateContext": {
+            "$ref": "#/components/schemas/Context"
+          },
+          "templateId": {
+            "type": "string"
+          }
+        }
+      },
+      "TemplateType": {
+        "type": "string",
+        "enum": [
+          "HTML"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
