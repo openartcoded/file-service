@@ -263,10 +263,12 @@ pub async fn upsert(
         let file_name = field.file_name().unwrap().to_string();
         let temp_path = temp_dir().join(format!("{}_{}", IdGenerator.get(), &file_name));
         tracing::debug!("{temp_path:?}");
-        let mut temp_file = tokio::fs::File::create(&temp_path).await.unwrap();
-        while let Ok(Some(chunk)) = field.chunk().await {
-            temp_file.write_all(&chunk).await.unwrap();
-        }
+        let _ = {
+            let mut temp_file = tokio::fs::File::create(&temp_path).await.unwrap();
+            while let Ok(Some(chunk)) = field.chunk().await {
+                temp_file.write_all(&chunk).await.unwrap();
+            }
+        };
         match &template_type {
             TemplateType::Html => {
                 if let Some(ct) = mime_guess::from_path(&temp_path).first() {
