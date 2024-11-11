@@ -174,7 +174,6 @@ impl FileService<'_> {
         mut upl: FileUpload,
         temp_file_path: Option<&PathBuf>,
     ) -> Result<FileUpload, ServiceError> {
-        println!("{temp_file_path:?}");
         if let Some(temp_file_path) = temp_file_path {
             let upload = self
                 .store
