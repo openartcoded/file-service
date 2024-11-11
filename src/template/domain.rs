@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use chrono::Local;
 use std::fmt::Display;
+use utoipa::{IntoParams, ToSchema};
 
 use ::serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
@@ -24,13 +25,13 @@ pub struct Template {
     pub title: String,
     pub description: Option<String>,
 }
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TemplateType {
     Html,
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Context {
     Invoice,
@@ -45,11 +46,11 @@ impl Display for Context {
             })
     }
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema, IntoParams)]
 pub struct ContextQuery {
     pub context: Context,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderRequest {
     pub template_id: String,
@@ -72,7 +73,7 @@ impl DerefMut for TemplateWrapper {
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateUpsert {
     #[serde(rename = "_id")]

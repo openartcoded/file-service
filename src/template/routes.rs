@@ -1,11 +1,15 @@
-use std::{env::var, error::Error, io::Cursor};
+use std::{
+    env::{temp_dir, var},
+    error::Error,
+    io::Cursor,
+};
 
 use axum::{
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{AppendHeaders, IntoResponse},
     routing::{delete, get, post},
-    Extension, Json, Router,
+    Json, Router,
 };
 use axum_extra::headers::ContentType;
 use chrono::Local;
@@ -20,7 +24,7 @@ use crate::{
     common::{
         constant::{PUBLIC_TENANT, TEMPL_SERVICE_COLLECTION_NAME},
         user_header::ExtractUserInfo,
-        util::{QueryIds, StoreCollection},
+        util::{IdGenerator, OpenApiDocUploadForm, QueryIds, StoreCollection},
     },
     store::{Repository, StoreClient, StoreRepository},
     template::domain::{Template, TemplateType, TemplateWrapper},
@@ -40,6 +44,14 @@ pub fn make_state(client: StoreClient) -> TemplRouterState {
         collection: StoreCollection(collection_name),
     }
 }
+#[utoipa::path(
+    post,
+    path = "/api/v1/template/render",
+    responses(
+        (status = 200, description = "Render template")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn render(
     State(file_router_state): State<FileRouterState>,
     x_user_info: ExtractUserInfo,
@@ -93,7 +105,15 @@ pub async fn render(
             .into_response(),
     }
 }
-
+#[utoipa::path(
+    get,
+    path = "/api/v1/template/find-by-context",
+    params(ContextQuery),
+    responses(
+        (status = 200, description = "Find templates by context")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn find_by_context(
     State(TemplRouterState { collection, client }): State<TemplRouterState>,
     ExtractUserInfo {
@@ -121,6 +141,14 @@ pub async fn find_by_context(
             .into_response(),
     }
 }
+#[utoipa::path(
+    get,
+    path = "/api/v1/template/find-by-ids",
+    responses(
+        (status = 200, description = "Find By ids")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn find_by_ids(
     State(TemplRouterState { collection, client }): State<TemplRouterState>,
     ExtractUserInfo {
@@ -145,6 +173,17 @@ pub async fn find_by_ids(
             .into_response(),
     }
 }
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/template",
+    params(TemplateUpsert),
+    request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
+    responses(
+        (status = 200, description = "Upsert a template")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn upsert(
     State(TemplRouterState { collection, client }): State<TemplRouterState>,
     State(file_router_state): State<FileRouterState>,
@@ -221,14 +260,13 @@ pub async fn upsert(
         .build();
 
     if let Some(mut field) = form.next_field().await.unwrap() {
+        let mut file = tokio::fs::File::create("example.txt").await.unwrap();
+        file.write_all(b"Hello, Tokio!").await.unwrap();
+        println!("File created and written to.");
         let file_name = field.file_name().unwrap().to_string();
-        let temp_path = std::env::temp_dir().join(&file_name);
-        let mut temp_file = tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&temp_path)
-            .await
-            .unwrap();
+        let temp_path = temp_dir().join(format!("{}_{}", IdGenerator.get(), &file_name));
+        tracing::debug!("{temp_path:?}");
+        let mut temp_file = tokio::fs::File::create(&temp_path).await.unwrap();
         while let Ok(Some(chunk)) = field.chunk().await {
             temp_file.write_all(&chunk).await.unwrap();
         }
@@ -257,6 +295,11 @@ pub async fn upsert(
             share_drive_path: &file_router_state.share_drive.0,
             store: &repository,
         };
+
+        println!(
+            "fucking rust {}",
+            std::fs::read_to_string(&temp_path).unwrap()
+        );
         let upl = file_service
             .upload(
                 FileUpload::new(
@@ -294,9 +337,17 @@ pub async fn upsert(
 
     (StatusCode::OK, Json(template)).into_response()
 }
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/template/delete/{templ_id}",
+    responses(
+        (status = 200, description = "Delete a template by id")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn delete_by_id(
-    Extension(client): Extension<StoreClient>,
-    Extension(collection): Extension<StoreCollection>,
+    State(TemplRouterState { client, collection }): State<TemplRouterState>,
     ExtractUserInfo {
         user_info: x_user_info,
         ..
@@ -334,14 +385,20 @@ pub async fn delete_by_id(
         ),
     }
 }
-
+#[utoipa::path(
+    get,
+    path = "/api/v1/template/find-all",
+    responses(
+        (status = 200, description = "Find all templates")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn find_all(
-    Extension(client): Extension<StoreClient>,
+    State(TemplRouterState { collection, client }): State<TemplRouterState>,
     ExtractUserInfo {
         user_info: x_user_info,
         ..
     }: ExtractUserInfo,
-    Extension(collection): Extension<StoreCollection>,
 ) -> impl IntoResponse {
     tracing::debug!("Template list route entered!");
     let repository: StoreRepository<Template> = StoreRepository::get_repository(
@@ -359,9 +416,17 @@ pub async fn find_all(
             .into_response(),
     }
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/template/find-one/{templ_id}",
+    responses(
+        (status = 200, description = "Find a template by id")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn find_one(
-    Extension(client): Extension<StoreClient>,
-    Extension(collection): Extension<StoreCollection>,
+    State(TemplRouterState { collection, client }): State<TemplRouterState>,
     ExtractUserInfo {
         user_info: x_user_info,
         ..
@@ -385,3 +450,4 @@ pub async fn find_one(
             .into_response(),
     }
 }
+

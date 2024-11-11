@@ -3,7 +3,7 @@ use std::{env::var, net::SocketAddr, str::FromStr};
 
 use axum::{
     extract::FromRef,
-    http::StatusCode,
+    http::{self, StatusCode},
     routing::{delete, get, post},
     Router,
 };
@@ -18,11 +18,21 @@ use tower_http::{
     trace::{DefaultMakeSpan, TraceLayer},
 };
 use upload::domain::FileRouterState;
+use utoipa::{
+    openapi::{
+        self,
+        security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme},
+        HeaderBuilder,
+    },
+    Modify, OpenApi,
+};
+use utoipa_swagger_ui::SwaggerUi;
 
 mod common;
 mod store;
 mod template;
 mod upload;
+
 async fn fallback() -> (StatusCode, &'static str) {
     (StatusCode::NOT_FOUND, "Not Found")
 }
@@ -41,6 +51,33 @@ impl FromRef<AppState> for FileRouterState {
 impl FromRef<AppState> for TemplRouterState {
     fn from_ref(app_state: &AppState) -> TemplRouterState {
         app_state.templ_state.clone()
+    }
+}
+#[derive(OpenApi)]
+#[openapi(
+    info(description = "Köfte Api V1"),
+    paths(
+        template::routes::find_all,
+        template::routes::find_by_ids,
+        template::routes::find_by_context,
+        template::routes::find_one,
+        template::routes::delete_by_id,
+        template::routes::render,
+        template::routes::upsert
+    ),
+    modifiers(&SecurityAddon),
+)]
+struct ApiDoc;
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "bearerAuth",
+                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+            )
+        }
     }
 }
 fn get_templ_router() -> Router<AppState> {
@@ -69,7 +106,7 @@ async fn main() {
     setup_tracing();
     let host = var(SERVICE_HOST).unwrap_or_else(|_| String::from("127.0.0.1"));
     let port = var(SERVICE_PORT).unwrap_or_else(|_| String::from("80"));
-    let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("köfte-service"));
+    let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("kofte-service"));
     let addr = SocketAddr::from_str(&format!("{host}:{port}")).unwrap();
     let client = StoreClient::new(app_name).await.unwrap();
     tracing::info!("listening on {:?}", addr);
@@ -82,9 +119,10 @@ async fn main() {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         )
         .with_state(AppState {
-            file_state: upload::routes::make_state(client.clone()),
+            file_state: upload::routes::make_state(client.clone()).await,
             templ_state: template::routes::make_state(client),
         })
+        .merge(SwaggerUi::new("/openapi").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .fallback(fallback);
 
     tracing::info!("listening on {:?}", listener);

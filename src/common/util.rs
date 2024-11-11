@@ -6,6 +6,13 @@ use serde_json::{json, Value};
 use time::{macros::format_description, UtcOffset};
 use tracing::Level;
 use tracing_subscriber::{fmt::time::OffsetTime, EnvFilter, FmtSubscriber};
+use utoipa::ToSchema;
+
+#[derive(utoipa::ToSchema)]
+pub struct OpenApiDocUploadForm {
+    #[schema(content_media_type = "application/octet-stream", format = "binary")]
+    pub file_bytes: String,
+}
 
 pub fn setup_tracing() -> Result<(), Box<dyn Error>> {
     let offset_hours = {
@@ -61,5 +68,5 @@ impl IdGenerator {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct QueryIds(pub Vec<String>);
