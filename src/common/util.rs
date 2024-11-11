@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use time::{macros::format_description, UtcOffset};
 use tracing::Level;
 use tracing_subscriber::{fmt::time::OffsetTime, EnvFilter, FmtSubscriber};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 #[derive(utoipa::ToSchema)]
 pub struct OpenApiDocUploadForm {
@@ -68,5 +68,7 @@ impl IdGenerator {
     }
 }
 
-#[derive(Deserialize, ToSchema)]
-pub struct QueryIds(pub Vec<String>);
+#[derive(Deserialize, ToSchema, IntoParams)]
+pub struct QueryIds {
+    pub ids: Vec<String>,
+}

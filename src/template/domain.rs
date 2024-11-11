@@ -38,12 +38,16 @@ pub enum Context {
 }
 impl Display for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        serde_json::to_string(self)
-            .map(|s| write!(f, "{s}"))
-            .unwrap_or_else(|e| {
-                tracing::error!("could not fmt enum {e}");
-                Err(std::fmt::Error)
-            })
+        match self {
+            Context::Invoice => write!(f, "INVOICE"),
+        }
+    }
+}
+impl Display for TemplateType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TemplateType::Html => write!(f, "HTML"),
+        }
     }
 }
 #[derive(Deserialize, ToSchema, IntoParams)]

@@ -83,7 +83,7 @@ impl Modify for SecurityAddon {
 fn get_templ_router() -> Router<AppState> {
     Router::new()
         .route("/find-all", get(template::routes::find_all))
-        .route("/find-by-ids", post(template::routes::find_by_ids))
+        .route("/find-by-ids", get(template::routes::find_by_ids))
         .route("/find-by-context", get(template::routes::find_by_context))
         .route("/find-one/:templ_id", get(template::routes::find_one))
         .route("/delete/:templ_id", delete(template::routes::delete_by_id))

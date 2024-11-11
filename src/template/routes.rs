@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     env::{temp_dir, var},
     error::Error,
@@ -129,10 +130,9 @@ pub async fn find_by_context(
         &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
     )
     .await;
-    match repository
-        .find_by_query(doc! {"template_context": context.context.to_string()}, None)
-        .await
-    {
+    let context = context.context.to_string();
+    let query = doc! {"templateContext": context};
+    match repository.find_by_query(query, None).await {
         Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -144,6 +144,7 @@ pub async fn find_by_context(
 #[utoipa::path(
     get,
     path = "/api/v1/template/find-by-ids",
+    params(QueryIds),
     responses(
         (status = 200, description = "Find By ids")
     ),
@@ -155,7 +156,7 @@ pub async fn find_by_ids(
         user_info: x_user_info,
         ..
     }: ExtractUserInfo,
-    Json(QueryIds(query_ids)): Json<QueryIds>,
+    axum_extra::extract::Query(QueryIds { ids: query_ids }): axum_extra::extract::Query<QueryIds>,
 ) -> impl IntoResponse {
     tracing::debug!("Template list by ids route entered!");
     let repository: StoreRepository<Template> = StoreRepository::get_repository(

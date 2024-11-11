@@ -66,7 +66,7 @@ where
 
 impl<T> Repository<T> for StoreRepository<T>
 where
-    T: Serialize + DeserializeOwned + Unpin + Send + Sync,
+    T: Serialize + DeserializeOwned + Unpin + Send + Sync + std::fmt::Debug,
 {
     fn get_collection(&self) -> &Collection<T> {
         &self.collection
@@ -74,7 +74,7 @@ where
 }
 
 #[async_trait::async_trait]
-pub trait Repository<T: Serialize + DeserializeOwned + Unpin + Send + Sync> {
+pub trait Repository<T: Serialize + DeserializeOwned + Unpin + Send + Sync + std::fmt::Debug> {
     fn get_collection(&self) -> &Collection<T>;
 
     async fn find_all(&self) -> Result<Vec<T>, StoreError> {
@@ -109,9 +109,13 @@ pub trait Repository<T: Serialize + DeserializeOwned + Unpin + Send + Sync> {
         options: impl Into<Option<FindOptions>> + Send,
     ) -> Result<Vec<T>, StoreError> {
         let collection = self.get_collection();
-        let cursor = collection
+        let mut cursor = collection
             .find(query)
-            .with_options(options)
+            .with_options(
+                options
+                    .into()
+                    .unwrap_or_else(|| FindOptions::builder().build()),
+            )
             .await
             .map_err(|e| StoreError { msg: e.to_string() })?;
         cursor
