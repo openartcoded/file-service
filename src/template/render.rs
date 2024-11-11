@@ -79,7 +79,7 @@ async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8
     let tab = get_chromium_tab()?;
 
     let temp_html_file_path = dirs::home_dir()
-        .unwrap_or_else(|| std::env::temp_dir())
+        .unwrap_or_else(std::env::temp_dir)
         .join(format!("{}.html", IdGenerator.get()));
     tracing::debug!("{temp_html_file_path:?}");
     tokio::fs::File::create(&temp_html_file_path).await?;
@@ -179,7 +179,7 @@ mod test {
         .await
         .unwrap();
         let p = dirs::home_dir()
-            .unwrap_or_else(|| std::env::temp_dir())
+            .unwrap_or_else(std::env::temp_dir)
             .join(format!("{}.pdf", IdGenerator.get()));
         tokio::fs::write(&p, res).await.unwrap();
         println!("path {p:?}");

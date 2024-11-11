@@ -10,7 +10,7 @@ pub async fn convert_to(
     tracing::debug!("convert file {input_path:?}");
     let input_path_str = &input_path.display().to_string();
     let temp_dir = dirs::home_dir()
-        .unwrap_or_else(|| std::env::temp_dir())
+        .unwrap_or_else(std::env::temp_dir)
         .display()
         .to_string();
     let output = Command::new("soffice")

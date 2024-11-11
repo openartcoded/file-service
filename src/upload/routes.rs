@@ -28,7 +28,7 @@ use super::domain::{
 pub async fn make_state(client: StoreClient) -> FileRouterState {
     let share_drive_path: String = std::env::var(SHARE_DRIVE_PATH).unwrap_or_else(|_| {
         dirs::home_dir()
-            .unwrap_or_else(|| std::env::temp_dir())
+            .unwrap_or_else(std::env::temp_dir)
             .join(client.get_application_name())
             .display()
             .to_string()
