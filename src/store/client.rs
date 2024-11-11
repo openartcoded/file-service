@@ -54,8 +54,8 @@ impl StoreClient {
         let timeout = var(MONGO_CONN_TIMEOUT)
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
-            .map(|v| Duration::from_secs(v));
-        client_options.server_selection_timeout = timeout.clone();
+            .map(Duration::from_secs);
+        client_options.server_selection_timeout = timeout;
         client_options.connect_timeout = timeout;
 
         tracing::info!("connecting to mongodb with options {client_options:?}");

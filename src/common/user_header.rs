@@ -31,7 +31,7 @@ impl<'a> TryFrom<&'a str> for ExtractUserInfo {
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let r = base64::engine::general_purpose::STANDARD_NO_PAD
-            .decode(&value)
+            .decode(value)
             .inspect_err(|e| tracing::error!("{e}"))
             .map(|b| (value.to_string(), b))
             .map(|(e, d)| {
@@ -42,7 +42,7 @@ impl<'a> TryFrom<&'a str> for ExtractUserInfo {
             .ok()
             .flatten()
             .map(|(header, user_info)| ExtractUserInfo { user_info, header });
-        r.ok_or(ServiceError(format!("could not extract token")))
+        r.ok_or(ServiceError("could not extract token".to_string()))
     }
 }
 fn is_expired(timestamp: u64) -> bool {

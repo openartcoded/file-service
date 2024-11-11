@@ -30,7 +30,7 @@ use crate::{
     template::domain::{Template, TemplateType, TemplateWrapper},
     upload::{
         domain::{FileRouterState, FileUpload},
-        service::FileService,
+        service::{write_field_to_temp_file, FileService},
     },
 };
 
@@ -261,18 +261,14 @@ pub async fn upsert(
 
     if let Some(mut field) = form.next_field().await.unwrap() {
         let file_name = field.file_name().unwrap().to_string();
-        let temp_path = temp_dir().join(format!("{}_{}", IdGenerator.get(), &file_name));
-        tracing::debug!("{temp_path:?}");
-        let _ = {
-            let mut temp_file = tokio::fs::File::create(&temp_path).await.unwrap();
-            while let Ok(Some(chunk)) = field.chunk().await {
-                temp_file.write_all(&chunk).await.unwrap();
-            }
-        };
+
+        let (temp_path, len) =
+            write_field_to_temp_file(&mut field, &file_router_state.share_drive.0, &file_name)
+                .await;
+
         match &template_type {
             TemplateType::Html => {
                 if let Some(ct) = mime_guess::from_path(&temp_path).first() {
-                    tokio::fs::remove_file(&temp_path).await.unwrap();
                     if ContentType::from(ct) != ContentType::html() {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -294,21 +290,16 @@ pub async fn upsert(
             share_drive_path: &file_router_state.share_drive.0,
             store: &repository,
         };
+        let fu = FileUpload::new(
+            &temp_path.display().to_string(),
+            &file_name,
+            Some(template.id.clone()),
+            false,
+            len,
+        )
+        .unwrap();
 
-        let upl = file_service
-            .upload(
-                FileUpload::new(
-                    &temp_path.display().to_string(),
-                    &file_name,
-                    Some(template.id.clone()),
-                    false,
-                )
-                .await
-                .unwrap(),
-                Some(&temp_path),
-            )
-            .await
-            .unwrap();
+        let upl = file_service.upload(fu, Some(&temp_path)).await.unwrap();
 
         template.file_id = upl.id;
     } else if template.file_id.is_empty() {

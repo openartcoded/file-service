@@ -33,16 +33,15 @@ pub struct FileUpload {
 }
 
 impl FileUpload {
-    pub async fn new(
+    pub fn new(
         path: &str,
         file_name: &str,
         correlation_id: Option<String>,
         public_resource: bool,
+        size: u64,
     ) -> Result<FileUpload, ServiceError> {
         let path = PathBuf::from_str(path).map_err(|e| ServiceError(format!("{e}")))?;
-        let metadata = tokio::fs::metadata(path.as_path())
-            .await
-            .map_err(|e| ServiceError(format!("{e}")))?;
+
         let mut f = FileUpload {
             content_type: mime_guess::from_path(path.as_path())
                 .first_raw()
@@ -50,7 +49,7 @@ impl FileUpload {
             correlation_id,
             original_filename: file_name.to_string(),
             extension: path.extension().map(|s| s.to_string_lossy().to_string()),
-            size: metadata.size(),
+            size,
             public_resource,
             ..Default::default()
         };

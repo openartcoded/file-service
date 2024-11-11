@@ -18,7 +18,7 @@ use crate::common::constant::{FILE_SERVICE_COLLECTION_NAME, PUBLIC_TENANT, SHARE
 use crate::common::user_header::ExtractUserInfo;
 use crate::common::util::StoreCollection;
 use crate::store::{Repository, StoreClient, StoreRepository};
-use crate::upload::service::FileService;
+use crate::upload::service::{write_field_to_temp_file, FileService};
 
 use super::domain::{
     DownloadFileRequestUriParams, FileRouterState, FileUpload, ShareDrive,
@@ -200,36 +200,4 @@ pub async fn upload(
         }
         (StatusCode::OK, Json(uploads_resp)).into_response()
     }
-}
-async fn write_field_to_temp_file<'a>(
-    field: &mut Field<'a>,
-    volume: impl Into<PathBuf>,
-    file_name: &str,
-) -> (PathBuf, u64) {
-    let volume = volume.into();
-    let temp_volume = volume.join("tmp"); // necessary to
-                                          // then move the file in the same volume
-    tracing::debug!("temp_volume: - {temp_volume:?}");
-    if !temp_volume.exists() {
-        tokio::fs::create_dir(&temp_volume).await.unwrap();
-    }
-    let temp_file_path = temp_volume.join(file_name);
-    if temp_file_path.exists() {
-        tracing::info!(
-            "file {file_name} exists. removing: {:?}",
-            tokio::fs::remove_file(&temp_file_path).await
-        );
-    }
-
-    let mut temp_file = {
-        let mut o = tokio::fs::OpenOptions::new();
-        o.append(true).create(true).open(&temp_file_path).await
-    }
-    .unwrap();
-
-    while let Ok(Some(chunk)) = field.chunk().await {
-        temp_file.write_all(&chunk).await.unwrap();
-    }
-    let metadata = temp_file.metadata().await.unwrap();
-    (temp_file_path, metadata.len())
 }
