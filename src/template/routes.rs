@@ -41,7 +41,7 @@ use super::domain::{
 
 pub fn make_state(client: StoreClient) -> TemplRouterState {
     let collection_name: String =
-        var(TEMPL_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("templ"));
+        var(TEMPL_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("template"));
     TemplRouterState {
         client,
         collection: StoreCollection(collection_name),

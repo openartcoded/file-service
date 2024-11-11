@@ -100,7 +100,7 @@ fn get_templ_router() -> Router<AppState> {
         .route("/", post(template::routes::upsert))
 }
 fn get_file_router() -> Router<AppState> {
-    let body_size_limit = (var("BODY_SIZE_LIMIT").unwrap_or_else(|_| "1024".into()))
+    let body_size_limit = (var("BODY_SIZE_LIMIT").unwrap_or_else(|_| format!("{}", 1024 * 1024)))
         .parse::<usize>()
         .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
     Router::new()
