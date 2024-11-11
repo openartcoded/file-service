@@ -96,6 +96,7 @@ fn get_file_router() -> Router<AppState> {
         .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
     Router::new()
         .route("/upload", post(upload::routes::upload))
+        .route("/delete/:upl_id", post(upload::routes::delete_by_id))
         .route("/download", get(upload::routes::download))
         .route("/metadata", get(upload::routes::metadata))
         .layer(RequestBodyLimitLayer::new(body_size_limit))

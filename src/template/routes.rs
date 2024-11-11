@@ -334,6 +334,7 @@ pub async fn upsert(
     security(("bearerAuth" = []))
 )]
 pub async fn delete_by_id(
+    State(fs): State<FileRouterState>,
     State(TemplRouterState { client, collection }): State<TemplRouterState>,
     ExtractUserInfo {
         user_info: x_user_info,
@@ -353,13 +354,24 @@ pub async fn delete_by_id(
     let repository: StoreRepository<Template> =
         StoreRepository::get_repository(client, &collection.0, &tenant).await;
 
+    let fs_repository: StoreRepository<FileUpload> =
+        StoreRepository::get_repository(fs.client, &fs.collection.0, &tenant).await;
+    let file_service = FileService {
+        share_drive_path: &fs.share_drive.0,
+        store: &fs_repository,
+    };
     match repository.delete_by_id(&templ_id).await {
-        Ok(Some(templ)) => (
-            StatusCode::OK,
-            Json(json!({
-                "result": format!("templ with id {} deleted", &templ.id)
-            })),
-        ),
+        Ok(Some(templ)) => {
+            if let Err(e) = file_service.delete_by_correlation_id(&templ_id).await {
+                tracing::error!("could not delete files linked to templ {templ:?} => {e}")
+            };
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "result": format!("templ with id {} deleted", &templ.id)
+                })),
+            )
+        }
         Ok(None) => (
             StatusCode::NO_CONTENT,
             Json(json!({

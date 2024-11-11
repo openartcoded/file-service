@@ -110,6 +110,50 @@ pub async fn download(
         None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
     }
 }
+pub async fn delete_by_id(
+    State(FileRouterState {
+        client,
+        collection,
+        share_drive: ShareDrive(share_drive),
+    }): State<FileRouterState>,
+    ExtractUserInfo {
+        user_info: x_user_info,
+        ..
+    }: ExtractUserInfo,
+    axum::extract::Path(upl_id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    tracing::debug!("Delete upload route entered!");
+    let Some(tenant) = x_user_info.group else {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "result": "tenant is missing"
+            })),
+        );
+    };
+    let fs_repository: StoreRepository<FileUpload> =
+        StoreRepository::get_repository(client, &collection.0, &tenant).await;
+    let file_service = FileService {
+        share_drive_path: &share_drive,
+        store: &fs_repository,
+    };
+    if let Err(e) = file_service.delete_by_correlation_id(&upl_id).await {
+        tracing::error!("could not delete files linked to templ {e:?}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "result": format!("upl with id {} could not be deleted, check logs", &upl_id)
+            })),
+        )
+    } else {
+        (
+            StatusCode::OK,
+            Json(json!({
+                "result": format!("upl with id {} deleted", &upl_id)
+            })),
+        )
+    }
+}
 pub async fn upload(
     State(FileRouterState {
         client,

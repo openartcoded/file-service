@@ -10,6 +10,7 @@ use axum::extract::multipart::Field;
 use chrono::Local;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
+use mongodb::bson::doc;
 use tokio::{
     fs::File,
     io::{self, AsyncWriteExt},
@@ -173,6 +174,7 @@ impl FileService<'_> {
             .map_err(|e| ServiceError::from(&e))?;
         Ok(Some(thumbnail.id))
     }
+
     pub async fn upload(
         &self,
         mut upl: FileUpload,
@@ -243,6 +245,24 @@ impl FileService<'_> {
             .await
             .map_err(|e| ServiceError::from(&e))?;
         Ok(upl)
+    }
+    pub async fn delete_by_correlation_id(&self, id: &str) -> Result<(), ServiceError> {
+        let upls = self
+            .store
+            .find_by_query(doc! {"correlationId": id}, None)
+            .await
+            .map_err(|e| ServiceError::from(&e))?;
+        for upl in upls {
+            self.store
+                .delete_by_id(&upl.id)
+                .await
+                .map_err(|e| ServiceError::from(&e))?;
+            if let Err(e) = tokio::fs::remove_file(self.get_physical_path(&upl.internal_name)).await
+            {
+                tracing::error!("could not delete file {upl:?} => {e}");
+            };
+        }
+        Ok(())
     }
     pub async fn download(&self, upl: &FileUpload) -> Result<File, ServiceError> {
         tokio::fs::File::open(self.get_physical_path(&upl.internal_name))
