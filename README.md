@@ -1,14 +1,6 @@
 # Kofte
 
-### Generate openapi client
-
-```
-npm install @openapitools/openapi-generator-cli -g
-```
-
-```
-openapi-generator-cli generate -i kofte-rs/openapi.json -g java -o kofte-java-client
-```
+Upload file, generate thumbnails and render templates
 
 ### Usage
 
@@ -41,3 +33,13 @@ services:
 | TEMPL_DEFAULT_DATETIME_FORMAT | Default datetime format for templates     | "[day]/[month]/[year] [hour]:[minute]"    |
 | TEMPL_DEFAULT_DATE_FORMAT     | Default date format for templates         | "[day]/[month]/[year]"                    |
 | CHROMIUM_SANDBOXED            | Enable Chromium sandboxing                | false                                     |
+
+### Generate openapi client
+
+```
+npm install @openapitools/openapi-generator-cli -g
+```
+
+```
+openapi-generator-cli generate -i kofte-rs/openapi.json -g java -o kofte-java-client
+```
