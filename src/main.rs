@@ -57,7 +57,7 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Köfte Api V1", title="Köfte",version="0.1", license(identifier="MIT")),
+    info(description = "Köfte Api V1", title="Köfte",version="0.2", license(identifier="MIT")),
     components(schemas(TemplateType, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
@@ -122,9 +122,9 @@ async fn main() {
     tracing::info!("listening on {:?}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     let api_doc = ApiDoc::openapi();
-    // tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
-    //     .await
-    //     .unwrap();
+    tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
+        .await
+        .unwrap();
     let app = Router::new()
         .nest("/api/v1/upload", get_file_router())
         .nest("/api/v1/template", get_templ_router())

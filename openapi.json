@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.1"
+    "version": "0.2"
   },
   "paths": {
     "/api/v1/template": {
@@ -86,7 +86,14 @@
         },
         "responses": {
           "200": {
-            "description": "Upsert a template"
+            "description": "Upsert a template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Template"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -104,7 +111,17 @@
         "operationId": "find_all",
         "responses": {
           "200": {
-            "description": "Find all templates"
+            "description": "Find all templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Template"
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -132,7 +149,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Find templates by context"
+            "description": "Find templates by context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Template"
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -163,7 +190,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Find By ids"
+            "description": "Find By ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Template"
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -191,7 +228,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Find templates by type"
+            "description": "Find templates by type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Template"
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -219,7 +266,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Find a template by id"
+            "description": "Find a template by id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Template"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -247,7 +301,19 @@
         },
         "responses": {
           "200": {
-            "description": "Render template"
+            "description": "Render template",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -274,7 +340,7 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
             "description": "Delete a template by id"
           }
         },
@@ -348,7 +414,14 @@
         },
         "responses": {
           "200": {
-            "description": "Upload a file"
+            "description": "Upload a file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUpload"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -376,7 +449,19 @@
         ],
         "responses": {
           "200": {
-            "description": "Download file"
+            "description": "Download file",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -404,7 +489,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Get upload metadata"
+            "description": "Get upload metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUpload"
+                }
+              }
+            }
           }
         },
         "security": [

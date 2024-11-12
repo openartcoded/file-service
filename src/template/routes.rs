@@ -51,7 +51,7 @@ pub fn make_state(client: StoreClient) -> TemplRouterState {
     post,
     path = "/api/v1/template/render",
     responses(
-        (status = 200, description = "Render template")
+        (status = 200, description = "Render template", body=Vec<u8>)
     ),
     security(("bearerAuth" = []))
 )]
@@ -114,7 +114,7 @@ pub async fn render(
     path = "/api/v1/template/find-by-type",
     params(TemplateTypeQuery),
     responses(
-        (status = 200, description = "Find templates by type")
+        (status = 200, description = "Find templates by type", body=Vec<Template>)
     ),
     security(("bearerAuth" = []))
 )]
@@ -149,7 +149,7 @@ pub async fn find_by_type(
     path = "/api/v1/template/find-by-context",
     params(ContextQuery),
     responses(
-        (status = 200, description = "Find templates by context")
+        (status = 200, description = "Find templates by context", body=Vec<Template>)
     ),
     security(("bearerAuth" = []))
 )]
@@ -184,7 +184,7 @@ pub async fn find_by_context(
     path = "/api/v1/template/find-by-ids",
     params(QueryIds),
     responses(
-        (status = 200, description = "Find By ids")
+        (status = 200, description = "Find By ids", body=Vec<Template>)
     ),
     security(("bearerAuth" = []))
 )]
@@ -219,7 +219,7 @@ pub async fn find_by_ids(
     params(TemplateUpsert),
     request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
     responses(
-        (status = 200, description = "Upsert a template")
+        (status = 200, description = "Upsert a template", body=Template)
     ),
     security(("bearerAuth" = []))
 )]
@@ -367,7 +367,7 @@ pub async fn upsert(
     delete,
     path = "/api/v1/template/{id}",
     responses(
-        (status = 204, description = "Delete a template by id")
+        (status = 200, description = "Delete a template by id")
     ),
     security(("bearerAuth" = []))
 )]
@@ -422,11 +422,12 @@ pub async fn delete_templ_by_id(
         ),
     }
 }
+
 #[utoipa::path(
     get,
     path = "/api/v1/template/find-all",
     responses(
-        (status = 200, description = "Find all templates")
+        (status = 200, description = "Find all templates", body=Vec<Template>)
     ),
     security(("bearerAuth" = []))
 )]
@@ -458,7 +459,7 @@ pub async fn find_all(
     get,
     path = "/api/v1/template/find-one/{templ_id}",
     responses(
-        (status = 200, description = "Find a template by id")
+        (status = 200, description = "Find a template by id", body=Template)
     ),
     security(("bearerAuth" = []))
 )]

@@ -38,7 +38,7 @@ pub async fn make_state(client: StoreClient) -> FileRouterState {
         tokio::fs::create_dir(&share_drive_path).await.unwrap();
     }
     let collection_name: String =
-        var(FILE_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("upload"));
+        var(FILE_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("fileUpload"));
     FileRouterState {
         client,
         share_drive: ShareDrive(share_drive_path),
@@ -50,7 +50,7 @@ pub async fn make_state(client: StoreClient) -> FileRouterState {
     path = "/api/v1/upload/metadata",
     params(DownloadFileRequestUriParams),
     responses(
-        (status = 200, description = "Get upload metadata")
+        (status = 200, description = "Get upload metadata", body=FileUpload)
     ),
     security(("bearerAuth" = []))
 )]
@@ -78,7 +78,7 @@ pub async fn metadata(
     path = "/api/v1/upload/download",
     params(DownloadFileRequestUriParams),
     responses(
-        (status = 200, description = "Download file")
+        (status = 200, description = "Download file", body=Vec<u8>)
     ),
     security(("bearerAuth" = []))
 )]
@@ -188,7 +188,7 @@ pub async fn delete_by_id(
     params(UploadFileRequestUriParams),
     request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
     responses(
-        (status = 200, description = "Upload a file")
+        (status = 200, description = "Upload a file", body=FileUpload)
     ),
     security(("bearerAuth" = []))
 )]
