@@ -37,6 +37,10 @@ services:
 ### Generate openapi client
 
 ```
+RUST_LOG=info   cargo run -- --generate-openapi
+```
+
+```
 npm install @openapitools/openapi-generator-cli -g
 ```
 

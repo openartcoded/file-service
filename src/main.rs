@@ -1,5 +1,9 @@
 #![allow(unused)]
-use std::{env::var, net::SocketAddr, str::FromStr};
+use std::{
+    env::{args, var},
+    net::SocketAddr,
+    str::FromStr,
+};
 
 use axum::{
     extract::FromRef,
@@ -114,6 +118,21 @@ fn get_file_router() -> Router<AppState> {
 #[tokio::main]
 async fn main() {
     setup_tracing();
+    let api_doc = ApiDoc::openapi();
+    if args()
+        .into_iter()
+        .skip(1)
+        .take(1)
+        .find(|s| s == "--generate-openapi")
+        .is_some()
+    {
+        tracing::info!("generate openapi spec...");
+        tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
+            .await
+            .unwrap();
+        tracing::info!("done.");
+        std::process::exit(0);
+    }
     let host = var(SERVICE_HOST).unwrap_or_else(|_| String::from("127.0.0.1"));
     let port = var(SERVICE_PORT).unwrap_or_else(|_| String::from("80"));
     let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("kofte-service"));
@@ -121,10 +140,7 @@ async fn main() {
     let client = StoreClient::new(app_name).await.unwrap();
     tracing::info!("listening on {:?}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    let api_doc = ApiDoc::openapi();
-    tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
-        .await
-        .unwrap();
+
     let app = Router::new()
         .nest("/api/v1/upload", get_file_router())
         .nest("/api/v1/template", get_templ_router())
