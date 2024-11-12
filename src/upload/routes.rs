@@ -16,7 +16,7 @@ use tokio_util::io::ReaderStream;
 
 use crate::common::constant::{FILE_SERVICE_COLLECTION_NAME, PUBLIC_TENANT, SHARE_DRIVE_PATH};
 use crate::common::user_header::ExtractUserInfo;
-use crate::common::util::{OpenApiDocUploadForm, StoreCollection};
+use crate::common::util::{OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection};
 use crate::store::{Repository, StoreClient, StoreRepository};
 use crate::upload::service::{write_field_to_temp_file, FileService};
 
@@ -78,7 +78,7 @@ pub async fn metadata(
     path = "/api/v1/upload/download",
     params(DownloadFileRequestUriParams),
     responses(
-        (status = 200, description = "Download file", body=Vec<u8>)
+        (status = 200, description = "Download file",content_type = "application/octet-stream",body=OpenApiBinaryResponse)
     ),
     security(("bearerAuth" = []))
 )]
@@ -130,6 +130,7 @@ pub async fn download(
         None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
     }
 }
+
 #[utoipa::path(
     delete,
     path = "/api/v1/upload/{id}",

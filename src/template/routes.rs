@@ -25,7 +25,9 @@ use crate::{
     common::{
         constant::{PUBLIC_TENANT, TEMPL_SERVICE_COLLECTION_NAME},
         user_header::ExtractUserInfo,
-        util::{IdGenerator, OpenApiDocUploadForm, QueryIds, StoreCollection},
+        util::{
+            IdGenerator, OpenApiBinaryResponse, OpenApiDocUploadForm, QueryIds, StoreCollection,
+        },
     },
     store::{Repository, StoreClient, StoreRepository},
     template::domain::{Template, TemplateType, TemplateWrapper},
@@ -51,7 +53,7 @@ pub fn make_state(client: StoreClient) -> TemplRouterState {
     post,
     path = "/api/v1/template/render",
     responses(
-        (status = 200, description = "Render template", body=Vec<u8>)
+        (status = 200, description = "Render template", content_type = "application/octet-stream",body=OpenApiBinaryResponse)
     ),
     security(("bearerAuth" = []))
 )]

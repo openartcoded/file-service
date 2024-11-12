@@ -9,7 +9,7 @@ use axum::{
 };
 use common::{
     constant::{BODY_SIZE_LIMIT, SERVICE_APPLICATION_NAME, SERVICE_HOST, SERVICE_PORT},
-    util::setup_tracing,
+    util::{setup_tracing, OpenApiBinaryResponse},
 };
 use store::StoreClient;
 use template::domain::{Context, TemplRouterState, Template, TemplateType, TemplateUpsert};
@@ -58,7 +58,7 @@ impl FromRef<AppState> for TemplRouterState {
 #[derive(OpenApi)]
 #[openapi(
     info(description = "Köfte Api V1", title="Köfte",version="0.2", license(identifier="MIT")),
-    components(schemas(TemplateType, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
+    components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
         upload::routes::download,

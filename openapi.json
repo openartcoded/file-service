@@ -305,12 +305,7 @@
             "content": {
               "application/octet-stream": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0
-                  }
+                  "$ref": "#/components/schemas/OpenApiBinaryResponse"
                 }
               }
             }
@@ -453,12 +448,7 @@
             "content": {
               "application/octet-stream": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0
-                  }
+                  "$ref": "#/components/schemas/OpenApiBinaryResponse"
                 }
               }
             }
@@ -616,6 +606,19 @@
               "null"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "OpenApiBinaryResponse": {
+        "type": "object",
+        "required": [
+          "file_bytes"
+        ],
+        "properties": {
+          "file_bytes": {
+            "type": "string",
+            "format": "binary",
+            "contentMediaType": "application/octet-stream"
           }
         }
       },

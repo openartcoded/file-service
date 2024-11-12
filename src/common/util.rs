@@ -9,6 +9,12 @@ use tracing_subscriber::{fmt::time::OffsetTime, EnvFilter, FmtSubscriber};
 use utoipa::{IntoParams, ToSchema};
 
 #[derive(utoipa::ToSchema)]
+pub struct OpenApiBinaryResponse {
+    #[schema(content_media_type = "application/octet-stream", format = "binary")]
+    pub file_bytes: String,
+}
+
+#[derive(utoipa::ToSchema)]
 pub struct OpenApiDocUploadForm {
     #[schema(content_media_type = "application/octet-stream", format = "binary")]
     pub file_bytes: String,
