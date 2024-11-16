@@ -10,7 +10,7 @@ use utoipa::{IntoParams, ToSchema};
 
 #[derive(utoipa::ToSchema)]
 pub struct OpenApiBinaryResponse {
-    #[schema(content_media_type = "application/octet-stream", format = "binary")]
+    #[schema(format = "binary")]
     pub file_bytes: String,
 }
 
