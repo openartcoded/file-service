@@ -36,3 +36,9 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter",  "time",
 utoipa = { version = "5.2.0", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "8.0.3", features = ["axum"] }
 uuid = { version = "1.11.0", features = ["v4"] }
+
+[profile.release]
+lto = "thin" 
+debug = 0 
+strip = "debuginfo" 
+opt-level = "s" # Optimize for size (or "s" for balanced optimization)

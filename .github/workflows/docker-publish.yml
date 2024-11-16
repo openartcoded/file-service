@@ -12,6 +12,11 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
+      - name: Set up mold
+        uses: rui314/setup-mold@v1
+        with:
+          mold-version: "latest"
+          make-default: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
@@ -34,3 +39,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=oxfamily/kofte:buildcache
+          cache-to: type=registry,ref=oxfamily/kofte:buildcache,mode=max
