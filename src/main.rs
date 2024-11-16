@@ -119,13 +119,7 @@ fn get_file_router() -> Router<AppState> {
 async fn main() {
     setup_tracing();
     let api_doc = ApiDoc::openapi();
-    if args()
-        .into_iter()
-        .skip(1)
-        .take(1)
-        .find(|s| s == "--generate-openapi")
-        .is_some()
-    {
+    if args().skip(1).take(1).any(|s| &s == "--generate-openapi") {
         tracing::info!("generate openapi spec...");
         tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
             .await
