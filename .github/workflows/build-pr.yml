@@ -26,3 +26,5 @@ jobs:
           push: true
           platforms: linux/amd64 #,linux/arm64
           tags: oxfamily/kofte:dev
+          cache-from: type=registry,ref=oxfamily/kofte:buildcache
+          cache-to: type=registry,ref=oxfamily/kofte:buildcache,mode=max
