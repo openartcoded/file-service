@@ -270,7 +270,7 @@ pub async fn upsert(
             let i = template_collection.find_one(doc! {"_id": id}).await;
             match i {
                 Ok(Some(mut i)) => {
-                    i.updated_date = Some(Local::now().naive_local());
+                    i.updated_date = Some(Local::now().to_utc());
                     TemplateWrapper(i)
                 }
                 Err(e) => return handle_err(e),

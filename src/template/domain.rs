@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use chrono::Local;
+use chrono::{DateTime, Local, Utc};
 use std::fmt::Display;
 use utoipa::{IntoParams, ToSchema};
 
@@ -17,8 +17,8 @@ use crate::{
 pub struct Template {
     #[serde(rename = "_id")]
     pub id: String,
-    pub creation_date: NaiveDateTime,
-    pub updated_date: Option<NaiveDateTime>,
+    pub creation_date: DateTime<Utc>,
+    pub updated_date: Option<DateTime<Utc>>,
     pub file_id: String,
     pub template_type: TemplateType,
     pub template_context: Context,
@@ -97,7 +97,7 @@ impl Default for TemplateWrapper {
     fn default() -> Self {
         Self(Template {
             id: IdGenerator.get(),
-            creation_date: Local::now().naive_local(),
+            creation_date: Local::now().to_utc(),
             updated_date: Default::default(),
             file_id: Default::default(),
             template_type: TemplateType::Html,

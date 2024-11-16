@@ -121,6 +121,7 @@ async fn main() {
     let api_doc = ApiDoc::openapi();
     if args().skip(1).take(1).any(|s| &s == "--generate-openapi") {
         tracing::info!("generate openapi spec...");
+        tokio::fs::remove_file("openapi.json").await.unwrap();
         tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
             .await
             .unwrap();

@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use chrono::{Local, NaiveDateTime};
+use chrono::{DateTime, Local, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
@@ -21,8 +21,8 @@ use crate::{
 pub struct FileUpload {
     #[serde(rename = "_id")]
     pub id: String,
-    pub creation_date: NaiveDateTime,
-    pub updated_date: Option<NaiveDateTime>,
+    pub creation_date: DateTime<Utc>,
+    pub updated_date: Option<DateTime<Utc>>,
     pub content_type: Option<String>,
     pub thumbnail_id: Option<String>,
     pub original_filename: String,
@@ -73,7 +73,7 @@ impl Default for FileUpload {
             original_filename: Default::default(),
             internal_name: Default::default(),
             extension: Default::default(),
-            creation_date: Local::now().naive_local(),
+            creation_date: Local::now().to_utc(),
             updated_date: Default::default(),
             thumbnail_id: Default::default(),
             size: Default::default(),

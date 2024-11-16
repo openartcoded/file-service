@@ -207,7 +207,7 @@ impl FileService<'_> {
             );
 
             if let Some(old_internal_name) = old_internal_name {
-                upl.updated_date = Some(Local::now().naive_local());
+                upl.updated_date = Some(Local::now().to_utc());
                 // override file
                 tracing::info!("removing old file {}", old_internal_name);
                 if let Err(e) = tokio::fs::remove_file(
