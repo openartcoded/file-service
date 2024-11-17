@@ -2,7 +2,7 @@ use core::panic;
 use std::{
     env::var,
     error::Error,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fmt::Debug,
     path::PathBuf,
     str::FromStr,
@@ -122,6 +122,12 @@ fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     match CHROMIUM_TAB.get() {
         Some((_, tab)) => Ok(tab.clone()),
         None => {
+            let user_data_dir = OsString::from(format!(
+                "--user-data-dir={}",
+                dirs::home_dir()
+                    .unwrap_or_else(std::env::temp_dir)
+                    .display()
+            ));
             let options = LaunchOptionsBuilder::default()
                 .sandbox(
                     std::env::var(CHROMIUM_SANDBOXED)
@@ -129,6 +135,11 @@ fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                         .unwrap_or(false),
                 )
                 .idle_browser_timeout(Duration::MAX)
+                .args(vec![
+                    OsStr::new("--disable-web-security"),
+                    OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
+                    &user_data_dir,
+                ])
                 .build()
                 .map_err(|e| format!("invalid options: {e}"))?;
 
