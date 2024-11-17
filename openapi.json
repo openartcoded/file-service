@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.3"
+    "version": "0.5"
   },
   "paths": {
     "/api/v1/template": {
@@ -303,7 +303,7 @@
           "200": {
             "description": "Render template",
             "content": {
-              "application/octet-stream": {
+              "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/OpenApiBinaryResponse"
                 }
@@ -446,9 +446,11 @@
           "200": {
             "description": "Download file",
             "content": {
-              "application/octet-stream": {
+              "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenApiBinaryResponse"
+                  "type": "string",
+                  "format": "binary",
+                  "contentMediaType": "*/*"
                 }
               }
             }
@@ -610,16 +612,9 @@
         }
       },
       "OpenApiBinaryResponse": {
-        "type": "object",
-        "required": [
-          "file_bytes"
-        ],
-        "properties": {
-          "file_bytes": {
-            "type": "string",
-            "format": "binary"
-          }
-        }
+        "type": "string",
+        "format": "binary",
+        "contentMediaType": "*/*"
       },
       "RenderRequest": {
         "type": "object",

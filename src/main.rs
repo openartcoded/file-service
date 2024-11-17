@@ -6,7 +6,7 @@ use std::{
 };
 
 use axum::{
-    extract::FromRef,
+    extract::{DefaultBodyLimit, FromRef},
     http::{self, StatusCode},
     routing::{delete, get, post},
     Router,
@@ -61,7 +61,7 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Köfte Api V1", title="Köfte",version="0.3", license(identifier="MIT")),
+    info(description = "Köfte Api V1", title="Köfte",version="0.5", license(identifier="MIT")),
     components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
@@ -112,7 +112,7 @@ fn get_file_router() -> Router<AppState> {
         .route("/download", get(upload::routes::download))
         .route("/metadata", get(upload::routes::metadata))
         .route("/", post(upload::routes::upload))
-        .layer(RequestBodyLimitLayer::new(body_size_limit))
+        .layer(DefaultBodyLimit::max(body_size_limit))
 }
 
 #[tokio::main]

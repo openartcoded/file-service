@@ -78,7 +78,7 @@ pub async fn metadata(
     path = "/api/v1/upload/download",
     params(DownloadFileRequestUriParams),
     responses(
-        (status = 200, description = "Download file",content_type = "application/octet-stream",body=OpenApiBinaryResponse)
+        (status = 200, description = "Download file",content_type = "*/*",body=inline(OpenApiBinaryResponse))
     ),
     security(("bearerAuth" = []))
 )]
