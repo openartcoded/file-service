@@ -53,7 +53,7 @@ pub fn make_state(client: StoreClient) -> TemplRouterState {
     post,
     path = "/api/v1/template/render",
     responses(
-        (status = 200, description = "Render template", content_type = "*/*",body=OpenApiBinaryResponse)
+        (status = 200, description = "Render template", content_type = "*/*",body=inline(OpenApiBinaryResponse))
     ),
     security(("bearerAuth" = []))
 )]

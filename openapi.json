@@ -305,7 +305,9 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenApiBinaryResponse"
+                  "type": "string",
+                  "format": "binary",
+                  "contentMediaType": "*/*"
                 }
               }
             }
