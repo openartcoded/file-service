@@ -3,11 +3,7 @@
     "name": "Nordine",
     "age": 12,
     "stuff": {
-      "stocks": [
-        "apple",
-        "bananas",
-        "tomatos"
-      ]
+      "stocks": ["apple", "bananas", "tomatos"]
     }
   },
   "fileName": "bim.pdf",
