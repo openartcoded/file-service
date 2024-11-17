@@ -11,7 +11,7 @@ use std::{
 };
 
 use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
-use minijinja::Environment;
+use minijinja::{functions, Environment, Value};
 use serde::Serialize;
 
 use crate::{
@@ -113,11 +113,16 @@ fn get_jinja_engine<'a>() -> &'a Environment<'static> {
             "DATE_FORMAT",
             var(TEMPL_DEFAULT_DATE_FORMAT).unwrap_or_else(|_| "[day]/[month]/[year]".to_string()),
         );
+        env.add_function("round", round);
         minijinja_contrib::add_to_environment(&mut env);
         env
     })
 }
-
+fn round(value: f64) -> String {
+    let precision = 2;
+    let formatted = format!("{:.precision$}", value, precision = precision);
+    formatted
+}
 fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     match CHROMIUM_TAB.get() {
         Some((_, tab)) => Ok(tab.clone()),
