@@ -6,14 +6,14 @@ use std::{
 };
 
 use axum::{
+    Router,
     extract::{DefaultBodyLimit, FromRef},
     http::{self, StatusCode},
     routing::{delete, get, post},
-    Router,
 };
 use common::{
     constant::{BODY_SIZE_LIMIT, SERVICE_APPLICATION_NAME, SERVICE_HOST, SERVICE_PORT},
-    util::{setup_tracing, OpenApiBinaryResponse},
+    util::{OpenApiBinaryResponse, setup_tracing},
 };
 use store::StoreClient;
 use template::domain::{Context, TemplRouterState, Template, TemplateType, TemplateUpsert};
@@ -25,12 +25,11 @@ use upload::domain::{
     DownloadFileRequestUriParams, FileRouterState, FileUpload, UploadFileRequestUriParams,
 };
 use utoipa::{
-    openapi::{
-        self,
-        security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme},
-        HeaderBuilder,
-    },
     Modify, OpenApi,
+    openapi::{
+        self, HeaderBuilder,
+        security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme},
+    },
 };
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -65,6 +64,7 @@ impl FromRef<AppState> for TemplRouterState {
     components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
+        upload::routes::find_all_uploads,
         upload::routes::download,
         upload::routes::upload,
         upload::routes::delete_by_id,
@@ -98,8 +98,8 @@ fn get_templ_router() -> Router<AppState> {
         .route("/find-by-ids", get(template::routes::find_by_ids))
         .route("/find-by-context", get(template::routes::find_by_context))
         .route("/find-by-type", get(template::routes::find_by_type))
-        .route("/find-one/:templ_id", get(template::routes::find_one))
-        .route("/:templ_id", delete(template::routes::delete_templ_by_id))
+        .route("/find-one/{templ_id}", get(template::routes::find_one))
+        .route("/{templ_id}", delete(template::routes::delete_templ_by_id))
         .route("/render", post(template::routes::render))
         .route("/", post(template::routes::upsert))
 }
@@ -108,7 +108,7 @@ fn get_file_router() -> Router<AppState> {
         .parse::<usize>()
         .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
     Router::new()
-        .route("/:upl_id", delete(upload::routes::delete_by_id))
+        .route("/find-all", get(upload::routes::find_all_uploads))
         .route("/download", get(upload::routes::download))
         .route("/metadata", get(upload::routes::metadata))
         .route("/", post(upload::routes::upload))

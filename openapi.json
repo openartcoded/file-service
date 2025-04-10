@@ -465,6 +465,34 @@
         ]
       }
     },
+    "/api/v1/upload/find-all": {
+      "get": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "find_all_uploads",
+        "responses": {
+          "200": {
+            "description": "Find all upload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileUpload"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/upload/metadata": {
       "get": {
         "tags": [

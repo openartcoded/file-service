@@ -3,12 +3,12 @@ use std::env::{temp_dir, var};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use axum::Json;
 use axum::extract::multipart::Field;
 use axum::extract::{Multipart, Query, State};
 use axum::http::header::CONTENT_TYPE;
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::{AppendHeaders, IntoResponse};
-use axum::Json;
 use mime_guess::mime::APPLICATION_OCTET_STREAM;
 use serde_json::json;
 use tokio::io::AsyncWriteExt;
@@ -18,7 +18,7 @@ use crate::common::constant::{FILE_SERVICE_COLLECTION_NAME, PUBLIC_TENANT, SHARE
 use crate::common::user_header::ExtractUserInfo;
 use crate::common::util::{OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection};
 use crate::store::{Repository, StoreClient, StoreRepository};
-use crate::upload::service::{write_field_to_temp_file, FileService};
+use crate::upload::service::{FileService, write_field_to_temp_file};
 
 use super::domain::{
     DownloadFileRequestUriParams, FileRouterState, FileUpload, ShareDrive,
@@ -131,6 +131,39 @@ pub async fn download(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/upload/find-all",
+    responses(
+        (status = 200, description = "Find all upload", body=Vec<FileUpload>)
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn find_all_uploads(
+    State(FileRouterState {
+        client, collection, ..
+    }): State<FileRouterState>,
+    ExtractUserInfo {
+        user_info: x_user_info,
+        ..
+    }: ExtractUserInfo,
+) -> impl IntoResponse {
+    tracing::debug!("Template list route entered!");
+    let repository: StoreRepository<FileUpload> = StoreRepository::get_repository(
+        client,
+        &collection.0,
+        &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
+    )
+    .await;
+    match repository.find_all().await {
+        Ok(templ) => (StatusCode::OK, Json(templ)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
 #[utoipa::path(
     delete,
     path = "/api/v1/upload/{id}",

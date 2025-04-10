@@ -1,4 +1,4 @@
-use mongodb::{bson::doc, options::ClientOptions, Client, Database};
+use mongodb::{Client, Database, bson::doc, options::ClientOptions};
 use tracing::info;
 
 use std::{env::var, time::Duration};

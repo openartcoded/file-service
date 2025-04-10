@@ -10,7 +10,7 @@ use axum::extract::multipart::Field;
 use chrono::Local;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::{Document, doc};
 use tokio::{
     fs::File,
     io::{self, AsyncWriteExt},
@@ -24,7 +24,7 @@ use crate::{
         util::StoreCollection,
     },
     store::{Repository, StoreClient, StoreRepository},
-    upload::soffice::{convert_to, ConvertType},
+    upload::soffice::{ConvertType, convert_to},
 };
 
 use super::domain::FileUpload;
@@ -307,14 +307,14 @@ impl FileService<'_> {
         Ok(bytes)
     }
 }
-pub async fn write_field_to_temp_file<'a>(
-    field: &mut Field<'a>,
+pub async fn write_field_to_temp_file(
+    field: &mut Field<'_>,
     volume: impl Into<PathBuf>,
     file_name: &str,
 ) -> (PathBuf, u64) {
     let volume = volume.into();
     let temp_volume = volume.join("tmp"); // necessary to
-                                          // then move the file in the same volume
+    // then move the file in the same volume
     tracing::debug!("temp_volume: - {temp_volume:?}");
     if !temp_volume.exists() {
         tokio::fs::create_dir(&temp_volume).await.unwrap();

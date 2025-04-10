@@ -2,10 +2,10 @@ use std::error::Error;
 
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use time::{macros::format_description, UtcOffset};
+use serde_json::{Value, json};
+use time::{UtcOffset, macros::format_description};
 use tracing::Level;
-use tracing_subscriber::{fmt::time::OffsetTime, EnvFilter, FmtSubscriber};
+use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::OffsetTime};
 use utoipa::{IntoParams, ToSchema};
 
 #[derive(utoipa::ToSchema)]

@@ -11,7 +11,7 @@ use std::{
 };
 
 use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
-use minijinja::{functions, Environment, Value};
+use minijinja::{Environment, Value, functions};
 use serde::Serialize;
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
 };
 
 use super::{
-    constant::{CHROMIUM_SANDBOXED, TEMPL_DEFAULT_DATETIME_FORMAT, TEMPL_DEFAULT_DATE_FORMAT},
+    constant::{CHROMIUM_SANDBOXED, TEMPL_DEFAULT_DATE_FORMAT, TEMPL_DEFAULT_DATETIME_FORMAT},
     domain::{Template, TemplateType},
 };
 

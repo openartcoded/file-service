@@ -1,10 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
+use axum::http;
 use axum::http::StatusCode;
-use axum::Json;
-use axum::{async_trait, http};
+use axum::http::request::Parts;
+use axum::{Json, extract::OptionalFromRequestParts};
 use axum_extra::headers;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,22 @@ pub struct UserInfo {
     pub rol: Vec<String>,
     pub group: Option<String>,
 }
+impl<S> OptionalFromRequestParts<S> for ExtractUserInfo
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, axum::Json<serde_json::Value>);
 
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        match <ExtractUserInfo as FromRequestParts<S>>::from_request_parts(parts, state).await {
+            Ok(res) => Ok(Some(res)),
+            Err(_) => Ok(None),
+        }
+    }
+}
 impl<'a> TryFrom<&'a str> for ExtractUserInfo {
     type Error = ServiceError;
 
@@ -53,7 +68,6 @@ fn is_expired(timestamp: u64) -> bool {
 
     timestamp < now
 }
-#[async_trait]
 impl<B> FromRequestParts<B> for ExtractUserInfo
 where
     B: Send + Sync,

@@ -6,6 +6,7 @@ on:
       - "develop"
       - "feat/**"
       - "chore/**"
+      - "feature/**"
 
 jobs:
   docker:
@@ -20,11 +21,14 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Get branch name
+        id: branch_name
+        run: echo "branch_name=${GITHUB_REF##*/}" | sed 's/\//-/g' >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           push: true
           platforms: linux/amd64 #,linux/arm64
-          tags: oxfamily/kofte:dev
+          tags: oxfamily/kofte:feature-${{ env.branch_name }}
           cache-from: type=registry,ref=oxfamily/kofte:buildcache
           cache-to: type=registry,ref=oxfamily/kofte:buildcache,mode=max

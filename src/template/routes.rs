@@ -6,11 +6,11 @@ use std::{
 };
 
 use axum::{
+    Json, Router,
     extract::{Multipart, Path, Query, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{AppendHeaders, IntoResponse},
     routing::{delete, get, post},
-    Json, Router,
 };
 use axum_extra::headers::ContentType;
 use chrono::Local;
@@ -33,7 +33,7 @@ use crate::{
     template::domain::{Template, TemplateType, TemplateWrapper},
     upload::{
         domain::{FileRouterState, FileUpload},
-        service::{write_field_to_temp_file, FileService},
+        service::{FileService, write_field_to_temp_file},
     },
 };
 
@@ -300,55 +300,60 @@ pub async fn upsert(
         .upsert(Some(true))
         .build();
 
-    if let Some(mut field) = form.next_field().await.unwrap() {
-        let file_name = field.file_name().unwrap().to_string();
+    match form.next_field().await.unwrap() {
+        Some(mut field) => {
+            let file_name = field.file_name().unwrap().to_string();
 
-        let (temp_path, len) =
-            write_field_to_temp_file(&mut field, &file_router_state.share_drive.0, &file_name)
-                .await;
+            let (temp_path, len) =
+                write_field_to_temp_file(&mut field, &file_router_state.share_drive.0, &file_name)
+                    .await;
 
-        match &template_type {
-            TemplateType::Html => {
-                if let Some(ct) = mime_guess::from_path(&temp_path).first() {
-                    if ContentType::from(ct) != ContentType::html() {
-                        return (
+            match &template_type {
+                TemplateType::Html => {
+                    if let Some(ct) = mime_guess::from_path(&temp_path).first() {
+                        if ContentType::from(ct) != ContentType::html() {
+                            return (
                             StatusCode::BAD_REQUEST,
                             Json(json!({"error": "File content type doesn't match template type"})),
                         )
                             .into_response();
+                        }
                     }
                 }
             }
+            template.template_type = template_type;
+            let repository: StoreRepository<FileUpload> = StoreRepository::get_repository(
+                file_router_state.client,
+                &file_router_state.collection.0,
+                &tenant,
+            )
+            .await;
+            let file_service = FileService {
+                share_drive_path: &file_router_state.share_drive.0,
+                store: &repository,
+            };
+            let fu = FileUpload::new(
+                &temp_path.display().to_string(),
+                &file_name,
+                Some(template.id.clone()),
+                false,
+                len,
+            )
+            .unwrap();
+
+            let upl = file_service.upload(fu, Some(&temp_path)).await.unwrap();
+
+            template.file_id = upl.id;
         }
-        template.template_type = template_type;
-        let repository: StoreRepository<FileUpload> = StoreRepository::get_repository(
-            file_router_state.client,
-            &file_router_state.collection.0,
-            &tenant,
-        )
-        .await;
-        let file_service = FileService {
-            share_drive_path: &file_router_state.share_drive.0,
-            store: &repository,
-        };
-        let fu = FileUpload::new(
-            &temp_path.display().to_string(),
-            &file_name,
-            Some(template.id.clone()),
-            false,
-            len,
-        )
-        .unwrap();
-
-        let upl = file_service.upload(fu, Some(&temp_path)).await.unwrap();
-
-        template.file_id = upl.id;
-    } else if template.file_id.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            "you cannot save a template that doesn't have a file attached to it",
-        )
-            .into_response();
+        _ => {
+            if template.file_id.is_empty() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    "you cannot save a template that doesn't have a file attached to it",
+                )
+                    .into_response();
+            }
+        }
     }
     if let Err(e) = template_collection
         .find_one_and_replace(doc! {"_id": &template.id}, &template)

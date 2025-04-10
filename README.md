@@ -37,7 +37,7 @@ services:
 ### Generate openapi client
 
 ```
-RUST_LOG=info   cargo run -- --generate-openapi
+RUST_LOG=info  cargo run -- --generate-openapi
 ```
 
 ```

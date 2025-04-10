@@ -1,13 +1,13 @@
 use futures::TryStreamExt;
-use mongodb::bson::{doc, Document};
+use mongodb::Collection;
+use mongodb::bson::{Document, doc};
 use mongodb::options::{FindOneAndReplaceOptions, FindOptions};
 use mongodb::results::{DeleteResult, InsertManyResult, InsertOneResult};
-use mongodb::Collection;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use super::client::StoreClient;
 use super::StoreError;
+use super::client::StoreClient;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Pageable {
     pub page: i64,
