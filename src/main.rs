@@ -60,7 +60,7 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Köfte Api V1", title="Köfte",version="0.5", license(identifier="MIT")),
+    info(description = "Köfte Api V1", title="Köfte",version="0.8", license(identifier="MIT")),
     components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
