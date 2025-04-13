@@ -110,6 +110,7 @@ fn get_file_router() -> Router<AppState> {
         .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
     Router::new()
         .route("/find-all", get(upload::routes::find_all_uploads))
+        .route("/{upl_id}", delete(upload::routes::delete_by_id))
         .route("/download", get(upload::routes::download))
         .route("/metadata", get(upload::routes::metadata))
         .route("/", post(upload::routes::upload))
