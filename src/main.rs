@@ -22,7 +22,8 @@ use tower_http::{
     trace::{DefaultMakeSpan, TraceLayer},
 };
 use upload::domain::{
-    DownloadFileRequestUriParams, FileRouterState, FileUpload, UploadFileRequestUriParams,
+    DownloadFileRequestUriParams, FileRouterState, FileUpload, FindAllQueryParams,
+    UploadFileRequestUriParams,
 };
 use utoipa::{
     Modify, OpenApi,
@@ -60,8 +61,8 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Köfte Api V1", title="Köfte",version="0.8", license(identifier="MIT")),
-    components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
+    info(description = "Köfte Api V1", title="Köfte",version="0.9", license(identifier="MIT")),
+    components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload,FindAllQueryParams, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
         upload::routes::find_all_uploads,

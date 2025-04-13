@@ -10,6 +10,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::http::{StatusCode, header};
 use axum::response::{AppendHeaders, IntoResponse};
 use mime_guess::mime::APPLICATION_OCTET_STREAM;
+use mongodb::bson::doc;
 use serde_json::json;
 use tokio::io::AsyncWriteExt;
 use tokio_util::io::ReaderStream;
@@ -18,6 +19,7 @@ use crate::common::constant::{FILE_SERVICE_COLLECTION_NAME, PUBLIC_TENANT, SHARE
 use crate::common::user_header::ExtractUserInfo;
 use crate::common::util::{OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection};
 use crate::store::{Repository, StoreClient, StoreRepository};
+use crate::upload::domain::FindAllQueryParams;
 use crate::upload::service::{FileService, write_field_to_temp_file};
 
 use super::domain::{
@@ -134,6 +136,7 @@ pub async fn download(
 #[utoipa::path(
     get,
     path = "/api/v1/upload/find-all",
+    params(FindAllQueryParams),
     responses(
         (status = 200, description = "Find all upload", body=Vec<FileUpload>)
     ),
@@ -147,6 +150,7 @@ pub async fn find_all_uploads(
         user_info: x_user_info,
         ..
     }: ExtractUserInfo,
+    Query(params): Query<FindAllQueryParams>,
 ) -> impl IntoResponse {
     tracing::debug!("Template list route entered!");
     let repository: StoreRepository<FileUpload> = StoreRepository::get_repository(
@@ -155,7 +159,12 @@ pub async fn find_all_uploads(
         &x_user_info.group.unwrap_or_else(|| PUBLIC_TENANT.into()),
     )
     .await;
-    match repository.find_all().await {
+    let query = if let Some(correlation_id) = params.correlation_id {
+        doc! {"correlationId": correlation_id}
+    } else {
+        doc! {}
+    };
+    match repository.find_by_query(query, None).await {
         Ok(templ) => (StatusCode::OK, Json(templ)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,

@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.8"
+    "version": "0.9"
   },
   "paths": {
     "/api/v1/template": {
@@ -471,6 +471,19 @@
           "upload::routes"
         ],
         "operationId": "find_all_uploads",
+        "parameters": [
+          {
+            "name": "correlationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Find all upload",
@@ -638,6 +651,17 @@
               "null"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "FindAllQueryParams": {
+        "type": "object",
+        "properties": {
+          "correlationId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

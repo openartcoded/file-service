@@ -104,3 +104,9 @@ pub struct FileRouterState {
     pub share_drive: ShareDrive,
     pub collection: StoreCollection,
 }
+
+#[derive(Deserialize, ToSchema, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct FindAllQueryParams {
+    pub correlation_id: Option<String>,
+}
