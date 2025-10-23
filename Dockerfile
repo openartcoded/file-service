@@ -5,7 +5,8 @@ RUN apk add \
     --no-cache \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
-    gperftools-devRUN cargo install cargo-chef 
+    gperftools-dev
+RUN cargo install cargo-chef 
 
 
 WORKDIR /app
