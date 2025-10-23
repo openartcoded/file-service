@@ -1,6 +1,6 @@
 FROM rust:1.90-alpine3.21 AS chef 
 
-RUN  apk add --no-cache openssl-dev build-base cmake pkgconfig musl-dev  openssl-libs-static perl 
+RUN  apk add --no-cache openssl-dev curl build-base cmake pkgconfig musl-dev  openssl-libs-static perl 
 RUN apk add \
     --no-cache \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
