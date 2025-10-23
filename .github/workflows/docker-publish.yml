@@ -24,7 +24,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: oxfamily/kofte
+          images: nbittich/file-service
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -34,5 +34,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=oxfamily/kofte:buildcache
-          cache-to: type=registry,ref=oxfamily/kofte:buildcache,mode=max
+          cache-from: type=registry,ref=nbittich/file-service:buildcache
+          cache-to: type=registry,ref=nbittich/file-service:buildcache,mode=max
