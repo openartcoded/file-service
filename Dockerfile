@@ -1,14 +1,12 @@
-FROM rust:1.86 AS chef 
-RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y libssl-dev build-essential cmake
+FROM rust:1.90-alpine3.21 AS chef 
 
-RUN cargo install cargo-chef 
+RUN  apk add --no-cache openssl-dev build-base cmake pkgconfig musl-dev  openssl-libs-static perl 
+RUN apk add \
+    --no-cache \
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
+    gperftools-devRUN cargo install cargo-chef 
 
-# install mold
-ENV MOLD_VERSION=2.37.1
-RUN wget https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
-    && tar -xvzf mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
-    && mv mold-${MOLD_VERSION}-x86_64-linux/bin/* /usr/local/bin
 
 WORKDIR /app
 
@@ -22,21 +20,25 @@ FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 
 # Build dependencies - this is the caching Docker layer!
-RUN RUSTFLAGS="-C link-arg=-fuse-ld=mold"  cargo chef cook --release --recipe-path recipe.json
+ENV RUSTFLAGS="-C link-args=-ltcmalloc" 
+RUN  cargo chef cook --release --recipe-path recipe.json
 # Build application
 
 COPY . .
 
-RUN RUSTFLAGS="-C link-arg=-fuse-ld=mold" cargo build --release
+RUN cargo build --release
 
-FROM debian:bookworm-slim AS runtime
-RUN apt update && apt upgrade -y
-RUN apt install -y ca-certificates
-RUN apt install  --no-install-recommends -y libreoffice chromium
+FROM alpine:3.21 AS runtime
+RUN apk add --no-cache tzdata
+RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
+
+RUN apk add --no-cache ca-certificates libreoffice chromium
 
 FROM runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/kofte-rs /kofte
 ENV RUST_LOG=INFO
-ENV TZ="Europe/Brussels"
+ENV LD_PRELOAD=/usr/lib/libtcmalloc.so
+ENV TCMALLOC_AGGRESSIVE_DECOMMIT=t
+
 ENTRYPOINT  ["/kofte"]

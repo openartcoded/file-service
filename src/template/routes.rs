@@ -310,14 +310,14 @@ pub async fn upsert(
 
             match &template_type {
                 TemplateType::Html => {
-                    if let Some(ct) = mime_guess::from_path(&temp_path).first() {
-                        if ContentType::from(ct) != ContentType::html() {
-                            return (
+                    if let Some(ct) = mime_guess::from_path(&temp_path).first()
+                        && ContentType::from(ct) != ContentType::html()
+                    {
+                        return (
                             StatusCode::BAD_REQUEST,
                             Json(json!({"error": "File content type doesn't match template type"})),
                         )
                             .into_response();
-                        }
                     }
                 }
             }

@@ -269,18 +269,18 @@ impl FileService<'_> {
             {
                 tracing::error!("could not delete file {upl:?} => {e}");
             };
-            if let Some(thumb_id) = &upl.thumbnail_id {
-                if let Ok(Some(thumb)) = self.store.find_by_id(thumb_id).await {
-                    self.store
-                        .delete_by_id(&thumb.id)
-                        .await
-                        .map_err(|e| ServiceError::from(&e))?;
-                    if let Err(e) =
-                        tokio::fs::remove_file(self.get_physical_path(&thumb.internal_name)).await
-                    {
-                        tracing::error!("could not delete thumb file {upl:?} => {e}");
-                    };
-                }
+            if let Some(thumb_id) = &upl.thumbnail_id
+                && let Ok(Some(thumb)) = self.store.find_by_id(thumb_id).await
+            {
+                self.store
+                    .delete_by_id(&thumb.id)
+                    .await
+                    .map_err(|e| ServiceError::from(&e))?;
+                if let Err(e) =
+                    tokio::fs::remove_file(self.get_physical_path(&thumb.internal_name)).await
+                {
+                    tracing::error!("could not delete thumb file {upl:?} => {e}");
+                };
             }
         }
         Ok(())
