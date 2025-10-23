@@ -741,6 +741,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-service"
+version = "0.3.1"
+dependencies = [
+ "async-trait",
+ "axum",
+ "axum-extra",
+ "base64 0.22.1",
+ "chrono",
+ "dirs",
+ "futures",
+ "futures-util",
+ "headless_chrome",
+ "http-body-util",
+ "image",
+ "mime_guess",
+ "minijinja",
+ "minijinja-contrib",
+ "mongodb",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "tokio-util",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "utoipa",
+ "utoipa-swagger-ui",
+ "uuid",
+]
+
+[[package]]
 name = "flate2"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1428,38 +1460,6 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "kofte-rs"
-version = "0.3.1"
-dependencies = [
- "async-trait",
- "axum",
- "axum-extra",
- "base64 0.22.1",
- "chrono",
- "dirs",
- "futures",
- "futures-util",
- "headless_chrome",
- "http-body-util",
- "image",
- "mime_guess",
- "minijinja",
- "minijinja-contrib",
- "mongodb",
- "serde",
- "serde_json",
- "time",
- "tokio",
- "tokio-util",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "utoipa",
- "utoipa-swagger-ui",
- "uuid",
 ]
 
 [[package]]

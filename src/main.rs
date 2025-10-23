@@ -132,7 +132,7 @@ async fn main() {
     }
     let host = var(SERVICE_HOST).unwrap_or_else(|_| String::from("127.0.0.1"));
     let port = var(SERVICE_PORT).unwrap_or_else(|_| String::from("80"));
-    let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("kofte-service"));
+    let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("file-service"));
     let addr = SocketAddr::from_str(&format!("{host}:{port}")).unwrap();
     let client = StoreClient::new(app_name).await.unwrap();
     tracing::info!("listening on {:?}", addr);

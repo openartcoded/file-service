@@ -1,5 +1,5 @@
 [package]
-name = "kofte-rs"
+name = "file-service"
 version = "0.3.1"
 edition = "2024"
 

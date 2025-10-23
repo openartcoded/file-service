@@ -1,4 +1,4 @@
-# Kofte
+# File Service
 
 Upload file, generate thumbnails and render templates
 
@@ -6,8 +6,8 @@ Upload file, generate thumbnails and render templates
 
 ```
 services:
-  kofte:
-    image: oxfamily/kofte
+  file:
+    image: nbittich/file-service
 ```
 
 ### Environment variables
@@ -17,13 +17,12 @@ services:
 | BODY_SIZE_LIMIT               | Body size limit for requests (in bytes)   | 1048576 (1mb)                             |
 | SERVICE_HOST                  | Hostname of the service                   | 127.0.0.1                                 |
 | SERVICE_PORT                  | Port for the service                      | 80                                        |
-| SERVICE_APPLICATION_NAME      | Application name of the service           | kofte-service                             |
+| SERVICE_APPLICATION_NAME      | Application name of the service           | file-service                             |
 | FILE_SERVICE_COLLECTION_NAME  | Collection name for file service          | fileUpload                                |
 | TEMPL_SERVICE_COLLECTION_NAME | Collection name for template service      | template                                  |
-| SHARE_DRIVE_PATH              | Path to the shared drive                  | $HOME/kofte-service or $TMP/kofte-service |
+| SHARE_DRIVE_PATH              | Path to the shared drive                  | $HOME/file-service or $TMP/file-service |
 | THUMB_HEIGHT                  | Thumbnail height                          | 300                                       |
 | THUMB_WIDTH                   | Thumbnail width                           | 300                                       |
-| TZ                            | Time zone                                 | Europe/Brussels                           |
 | MONGO_HOST                    | MongoDB host                              | 127.0.0.1                                 |
 | MONGO_PORT                    | MongoDB port                              | 27017                                     |
 | MONGO_USERNAME                | Username for MongoDB                      | root                                      |
@@ -45,5 +44,5 @@ npm install @openapitools/openapi-generator-cli -g
 ```
 
 ```
-openapi-generator-cli generate -i kofte-rs/openapi.json -g java -o kofte-java-client
+openapi-generator-cli generate -i file-service/openapi.json -g java -o file-service-java-client
 ```

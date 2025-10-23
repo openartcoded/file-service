@@ -35,10 +35,15 @@ RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
 RUN apk add --no-cache ca-certificates libreoffice chromium
 
 FROM runtime
+
+ARG USERNAME=file-service
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
 WORKDIR /app
-COPY --from=builder /app/target/release/kofte-rs /kofte
+COPY --from=builder /app/target/release/file-service /file-service
 ENV RUST_LOG=INFO
 ENV LD_PRELOAD=/usr/lib/libtcmalloc.so
 ENV TCMALLOC_AGGRESSIVE_DECOMMIT=t
 
-ENTRYPOINT  ["/kofte"]
+ENTRYPOINT  ["/file-service"]
