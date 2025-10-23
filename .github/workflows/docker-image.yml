@@ -23,6 +23,6 @@ jobs:
         with:
           push: true
           platforms: linux/amd64 #,linux/arm64
-          tags: oxfamily/kofte:latest
-          cache-from: type=registry,ref=oxfamily/kofte:buildcache
-          cache-to: type=registry,ref=oxfamily/kofte:buildcache,mode=max
+          tags: nbittich/file-service:latest
+          cache-from: type=registry,ref=nbittich/file-service:buildcache
+          cache-to: type=registry,ref=nbittich/file-service:buildcache,mode=max
