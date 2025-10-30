@@ -1,13 +1,13 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Köfte",
-    "description": "Köfte Api V1",
+    "title": "FileApi",
+    "description": "File Api V1",
     "license": {
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.9"
+    "version": "0.1"
   },
   "paths": {
     "/api/v1/template": {
@@ -90,17 +90,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Template"
+                  "$ref": "#/components/schemas/TemplateV2"
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/find-all": {
@@ -117,18 +112,13 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Template"
+                    "$ref": "#/components/schemas/TemplateV2"
                   }
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/find-by-context": {
@@ -155,18 +145,13 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Template"
+                    "$ref": "#/components/schemas/TemplateV2"
                   }
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/find-by-ids": {
@@ -196,18 +181,13 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Template"
+                    "$ref": "#/components/schemas/TemplateV2"
                   }
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/find-by-type": {
@@ -234,18 +214,13 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Template"
+                    "$ref": "#/components/schemas/TemplateV2"
                   }
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/find-one/{templ_id}": {
@@ -270,17 +245,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Template"
+                  "$ref": "#/components/schemas/TemplateV2"
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/render": {
@@ -312,12 +282,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/template/{id}": {
@@ -340,12 +305,7 @@
           "200": {
             "description": "Delete a template by id"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/upload": {
@@ -387,6 +347,17 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "without_thumbnail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
           }
         ],
         "requestBody": {
@@ -415,17 +386,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileUpload"
+                  "$ref": "#/components/schemas/FileUploadV2"
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/upload/download": {
@@ -457,12 +423,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/upload/find-all": {
@@ -492,18 +453,13 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/FileUpload"
+                    "$ref": "#/components/schemas/FileUploadV2"
                   }
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/upload/metadata": {
@@ -528,17 +484,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileUpload"
+                  "$ref": "#/components/schemas/FileUploadV2"
                 }
               }
             }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/upload/{id}": {
@@ -561,12 +512,7 @@
           "200": {
             "description": "Delete a file by id"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     }
   },
@@ -575,7 +521,9 @@
       "Context": {
         "type": "string",
         "enum": [
-          "INVOICE"
+          "INVOICE",
+          "PEPPOL",
+          "C_V"
         ]
       },
       "DownloadFileRequestUriParams": {
@@ -589,7 +537,7 @@
           }
         }
       },
-      "FileUpload": {
+      "FileUploadV2": {
         "type": "object",
         "required": [
           "_id",
@@ -602,6 +550,19 @@
         "properties": {
           "_id": {
             "type": "string"
+          },
+          "bookmarked": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "bookmarkedDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "contentType": {
             "type": [
@@ -627,6 +588,12 @@
           },
           "internalName": {
             "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "originalFilename": {
             "type": "string"
@@ -691,7 +658,45 @@
           }
         }
       },
-      "Template": {
+      "TemplateType": {
+        "type": "string",
+        "enum": [
+          "HTML",
+          "XML"
+        ]
+      },
+      "TemplateUpsert": {
+        "type": "object",
+        "required": [
+          "title",
+          "templateType",
+          "templateContext"
+        ],
+        "properties": {
+          "_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "templateContext": {
+            "$ref": "#/components/schemas/Context"
+          },
+          "templateType": {
+            "$ref": "#/components/schemas/TemplateType"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "TemplateV2": {
         "type": "object",
         "required": [
           "_id",
@@ -736,43 +741,6 @@
           }
         }
       },
-      "TemplateType": {
-        "type": "string",
-        "enum": [
-          "HTML"
-        ]
-      },
-      "TemplateUpsert": {
-        "type": "object",
-        "required": [
-          "title",
-          "templateType",
-          "templateContext"
-        ],
-        "properties": {
-          "_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "templateContext": {
-            "$ref": "#/components/schemas/Context"
-          },
-          "templateType": {
-            "$ref": "#/components/schemas/TemplateType"
-          },
-          "title": {
-            "type": "string"
-          }
-        }
-      },
       "UploadFileRequestUriParams": {
         "type": "object",
         "properties": {
@@ -793,14 +761,14 @@
               "boolean",
               "null"
             ]
+          },
+          "without_thumbnail": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
-      }
-    },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
       }
     }
   }

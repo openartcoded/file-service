@@ -1,5 +1,8 @@
 use std::{error::Error, fmt::Display};
 
+use axum::{Json, http::StatusCode, response::IntoResponse};
+use serde_json::json;
+
 #[derive(Debug)]
 pub struct ServiceError(pub String);
 
@@ -13,5 +16,14 @@ impl Error for ServiceError {}
 impl ServiceError {
     pub fn from(e: &dyn Error) -> Self {
         ServiceError(e.to_string())
+    }
+}
+impl IntoResponse for ServiceError {
+    fn into_response(self) -> axum::response::Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": self.to_string()})),
+        )
+            .into_response()
     }
 }

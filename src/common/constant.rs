@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 pub const BODY_SIZE_LIMIT: &str = "BODY_SIZE_LIMIT";
 pub const SERVICE_HOST: &str = "SERVICE_HOST";
 pub const SERVICE_PORT: &str = "SERVICE_PORT";
@@ -8,4 +10,6 @@ pub const SHARE_DRIVE_PATH: &str = "SHARE_DRIVE_PATH";
 pub const THUMB_HEIGHT: &str = "THUMB_HEIGHT";
 pub const THUMB_WIDTH: &str = "THUMB_WIDTH";
 pub const TZ: &str = "TZ";
-pub const PUBLIC_TENANT: &str = "public";
+
+pub static DEFAULT_TENANT: LazyLock<String> =
+    LazyLock::new(|| std::env::var("DEFAULT_TENANT").unwrap_or_else(|_| "artcoded_test".into()));

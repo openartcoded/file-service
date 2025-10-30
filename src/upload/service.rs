@@ -1,5 +1,4 @@
 use std::{
-    cell::OnceCell,
     env::var,
     io::{Cursor, Read, Seek, SeekFrom},
     path::PathBuf,
@@ -18,20 +17,19 @@ use tokio::{
 
 use crate::{
     common::{
-        constant::{PUBLIC_TENANT, THUMB_HEIGHT, THUMB_WIDTH},
+        constant::{DEFAULT_TENANT, THUMB_HEIGHT, THUMB_WIDTH},
         domain::ServiceError,
-        user_header::ExtractUserInfo,
         util::StoreCollection,
     },
     store::{Repository, StoreClient, StoreRepository},
     upload::soffice::{ConvertType, convert_to},
 };
 
-use super::domain::FileUpload;
+use super::domain::FileUploadV2;
 
 pub struct FileService<'a> {
     pub share_drive_path: &'a str,
-    pub store: &'a StoreRepository<FileUpload>,
+    pub store: &'a StoreRepository<FileUploadV2>,
 }
 
 static THUMB_W: OnceLock<u32> = OnceLock::new();
@@ -59,11 +57,11 @@ impl FileService<'_> {
         tenant: Option<String>,
         client: &StoreClient,
         collection: &StoreCollection,
-    ) -> Option<(StoreRepository<FileUpload>, FileUpload)> {
+    ) -> Option<(StoreRepository<FileUploadV2>, FileUploadV2)> {
         async fn get_upload(
-            repository: &StoreRepository<FileUpload>,
+            repository: &StoreRepository<FileUploadV2>,
             id: &str,
-        ) -> Option<FileUpload> {
+        ) -> Option<FileUploadV2> {
             match repository.find_by_id(id).await {
                 Ok(Some(response)) => Some(response),
                 Ok(None) => None,
@@ -74,14 +72,14 @@ impl FileService<'_> {
             }
         }
 
-        let public_repository: StoreRepository<FileUpload> =
-            StoreRepository::get_repository(client.clone(), &collection.0, PUBLIC_TENANT).await;
+        let public_repository: StoreRepository<FileUploadV2> =
+            StoreRepository::get_repository(client, &collection.0, &DEFAULT_TENANT);
 
         if let Some(fu) = get_upload(&public_repository, id).await {
             Some((public_repository, fu))
         } else if let Some(tenant) = tenant {
-            let private_repository: StoreRepository<FileUpload> =
-                StoreRepository::get_repository(client.clone(), &collection.0, &tenant).await;
+            let private_repository: StoreRepository<FileUploadV2> =
+                StoreRepository::get_repository(client, &collection.0, &tenant);
             get_upload(&private_repository, id)
                 .await
                 .map(|fu| (private_repository, fu))
@@ -95,7 +93,7 @@ impl FileService<'_> {
 
     async fn make_thumbnail(
         &self,
-        upl: &FileUpload,
+        upl: &FileUploadV2,
         internal_name: &str,
         temp_file_path: &PathBuf,
     ) -> Result<Option<String>, ServiceError> {
@@ -155,12 +153,14 @@ impl FileService<'_> {
         } else {
             format!("thumb-{internal_name}")
         };
-        let thumbnail = FileUpload {
+        let thumbnail = FileUploadV2 {
             content_type: mime_guess::from_ext(&extension)
                 .first_raw()
                 .map(|m| m.into()),
             thumbnail_id: None,
             original_filename: thumb_filename.clone(),
+            bookmarked: Some(false),
+            name: Some(thumb_filename.clone()),
             internal_name: thumb_filename,
             extension: Some(extension),
             size: thumb.len() as u64,
@@ -177,7 +177,7 @@ impl FileService<'_> {
             .map_err(|e| ServiceError::from(&e))?;
 
         self.store
-            .update(&thumbnail.id, &thumbnail)
+            .upsert(&thumbnail.id, &thumbnail)
             .await
             .map_err(|e| ServiceError::from(&e))?;
         Ok(Some(thumbnail.id))
@@ -185,9 +185,10 @@ impl FileService<'_> {
 
     pub async fn upload(
         &self,
-        mut upl: FileUpload,
+        mut upl: FileUploadV2,
         temp_file_path: Option<&PathBuf>,
-    ) -> Result<FileUpload, ServiceError> {
+        without_thumbnail: bool,
+    ) -> Result<FileUploadV2, ServiceError> {
         if let Some(temp_file_path) = temp_file_path {
             let upload = self
                 .store
@@ -235,9 +236,11 @@ impl FileService<'_> {
                 }
             }
 
-            upl.thumbnail_id = self
-                .make_thumbnail(&upl, &internal_name, temp_file_path)
-                .await?;
+            if !without_thumbnail {
+                upl.thumbnail_id = self
+                    .make_thumbnail(&upl, &internal_name, temp_file_path)
+                    .await?;
+            }
 
             tokio::fs::rename(
                 temp_file_path,
@@ -249,7 +252,7 @@ impl FileService<'_> {
         }
 
         self.store
-            .update(&upl.id, &upl)
+            .upsert(&upl.id, &upl)
             .await
             .map_err(|e| ServiceError::from(&e))?;
         Ok(upl)
@@ -291,12 +294,12 @@ impl FileService<'_> {
     pub async fn delete_by_id(&self, id: &str) -> Result<(), ServiceError> {
         self.delete_by(doc! {"_id": id}).await
     }
-    pub async fn download(&self, upl: &FileUpload) -> Result<File, ServiceError> {
+    pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
         tokio::fs::File::open(self.get_physical_path(&upl.internal_name))
             .await
             .map_err(|e| ServiceError::from(&e))
     }
-    pub async fn download_bytes(&self, upl: &FileUpload) -> Result<Vec<u8>, ServiceError> {
+    pub async fn download_bytes(&self, upl: &FileUploadV2) -> Result<Vec<u8>, ServiceError> {
         use io::AsyncReadExt;
         let mut download = self.download(upl).await?;
         let mut bytes = Vec::with_capacity(1024);

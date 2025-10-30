@@ -5,16 +5,15 @@ use std::fmt::Display;
 use utoipa::{IntoParams, ToSchema};
 
 use ::serde::{Deserialize, Serialize};
-use chrono::NaiveDateTime;
 
 use crate::{
     common::util::{IdGenerator, StoreCollection},
-    store::StoreClient,
+    store::{Identifiable, StoreClient},
 };
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct Template {
+pub struct TemplateV2 {
     #[serde(rename = "_id")]
     pub id: String,
     pub creation_date: DateTime<Utc>,
@@ -25,21 +24,33 @@ pub struct Template {
     pub title: String,
     pub description: Option<String>,
 }
+
+impl Identifiable for TemplateV2 {
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+}
+
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TemplateType {
     Html,
+    Xml,
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Context {
     Invoice,
+    Peppol,
+    CV,
 }
 impl Display for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Context::Invoice => write!(f, "INVOICE"),
+            Context::CV => write!(f, "CV"),
+            Context::Peppol => write!(f, "PEPPOL"),
         }
     }
 }
@@ -47,6 +58,7 @@ impl Display for TemplateType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TemplateType::Html => write!(f, "HTML"),
+            TemplateType::Xml => write!(f, "XML"),
         }
     }
 }
@@ -67,10 +79,10 @@ pub struct RenderRequest {
     pub file_name: String,
     pub template_context: Context,
 }
-pub struct TemplateWrapper(pub Template);
+pub struct TemplateWrapper(pub TemplateV2);
 
 impl Deref for TemplateWrapper {
-    type Target = Template;
+    type Target = TemplateV2;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -95,7 +107,7 @@ pub struct TemplateUpsert {
 
 impl Default for TemplateWrapper {
     fn default() -> Self {
-        Self(Template {
+        Self(TemplateV2 {
             id: IdGenerator.get(),
             creation_date: Local::now().to_utc(),
             updated_date: Default::default(),

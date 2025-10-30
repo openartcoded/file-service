@@ -16,11 +16,12 @@ services:
 | ----------------------------- | ----------------------------------------- | ----------------------------------------- |
 | BODY_SIZE_LIMIT               | Body size limit for requests (in bytes)   | 1048576 (1mb)                             |
 | SERVICE_HOST                  | Hostname of the service                   | 127.0.0.1                                 |
+| DEFAULT_TENANT                | Default database name                     | artcoded_test                             |
 | SERVICE_PORT                  | Port for the service                      | 80                                        |
-| SERVICE_APPLICATION_NAME      | Application name of the service           | file-service                             |
-| FILE_SERVICE_COLLECTION_NAME  | Collection name for file service          | fileUpload                                |
+| SERVICE_APPLICATION_NAME      | Application name of the service           | file-service                              |
+| FILE_SERVICE_OLLECTION_NAME  | Collection name for file service          | fileUpload                                |
 | TEMPL_SERVICE_COLLECTION_NAME | Collection name for template service      | template                                  |
-| SHARE_DRIVE_PATH              | Path to the shared drive                  | $HOME/file-service or $TMP/file-service |
+| SHARE_DRIVE_PATH              | Path to the shared drive                  | $HOME/file-service or $TMP/file-service   |
 | THUMB_HEIGHT                  | Thumbnail height                          | 300                                       |
 | THUMB_WIDTH                   | Thumbnail width                           | 300                                       |
 | MONGO_HOST                    | MongoDB host                              | 127.0.0.1                                 |

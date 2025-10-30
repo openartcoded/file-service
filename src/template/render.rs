@@ -1,27 +1,24 @@
-use core::panic;
 use std::{
     env::var,
     error::Error,
     ffi::{OsStr, OsString},
     fmt::Debug,
-    path::PathBuf,
-    str::FromStr,
     sync::{Arc, OnceLock},
     time::Duration,
 };
 
 use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
-use minijinja::{Environment, Value, functions};
+use minijinja::Environment;
 use serde::Serialize;
 
 use crate::{
-    common::{constant::TZ, domain::ServiceError, user_header::ExtractUserInfo, util::IdGenerator},
+    common::{constant::TZ, domain::ServiceError, util::IdGenerator},
     upload::{domain::FileRouterState, service::FileService},
 };
 
 use super::{
     constant::{CHROMIUM_SANDBOXED, TEMPL_DEFAULT_DATE_FORMAT, TEMPL_DEFAULT_DATETIME_FORMAT},
-    domain::{Template, TemplateType},
+    domain::{TemplateType, TemplateV2},
 };
 
 static JINJA_ENGINE: OnceLock<Environment<'static>> = OnceLock::new();
@@ -37,7 +34,7 @@ pub fn init() -> Result<(), Box<dyn Error>> {
 }
 
 pub async fn render<T: Serialize + Debug>(
-    templ: &Template,
+    templ: &TemplateV2,
     templ_ctx: &T,
     file_router_state: &FileRouterState,
     tenant: Option<String>,
@@ -57,12 +54,13 @@ pub async fn render<T: Serialize + Debug>(
             };
             let templ_bytes = file_service.download_bytes(&file).await?;
 
-            let pdf = match templ.template_type {
+            let result = match templ.template_type {
                 TemplateType::Html => html_to_pdf(&templ_bytes, templ_ctx).await,
+                TemplateType::Xml => xml_to_xml(&templ_bytes, templ_ctx).await,
             }
             .map_err(|e| ServiceError(format!("cannot convert html to pdf: {e} {templ_ctx:?}")))?;
 
-            Ok(pdf)
+            Ok(result)
         }
         None => Err(ServiceError(format!(
             "templ with id {} doesn't seem to exist in db",
@@ -71,6 +69,13 @@ pub async fn render<T: Serialize + Debug>(
     }
 }
 
+async fn xml_to_xml<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8>, Box<dyn Error>> {
+    let engine = get_jinja_engine();
+
+    tracing::debug!("{}", String::from_utf8_lossy(templ));
+    let xml = engine.render_str(std::str::from_utf8(templ)?, templ_ctx)?;
+    Ok(xml.into_bytes())
+}
 async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8>, Box<dyn Error>> {
     let engine = get_jinja_engine();
 

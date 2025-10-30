@@ -1,4 +1,3 @@
-#![allow(unused)]
 use std::{
     env::{args, var},
     net::SocketAddr,
@@ -8,7 +7,7 @@ use std::{
 use axum::{
     Router,
     extract::{DefaultBodyLimit, FromRef},
-    http::{self, StatusCode},
+    http::StatusCode,
     routing::{delete, get, post},
 };
 use common::{
@@ -16,23 +15,17 @@ use common::{
     util::{OpenApiBinaryResponse, setup_tracing},
 };
 use store::StoreClient;
-use template::domain::{Context, TemplRouterState, Template, TemplateType, TemplateUpsert};
-use tower_http::{
-    limit::RequestBodyLimitLayer,
-    trace::{DefaultMakeSpan, TraceLayer},
-};
+use template::domain::{Context, TemplRouterState, TemplateType, TemplateUpsert, TemplateV2};
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::info;
 use upload::domain::{
-    DownloadFileRequestUriParams, FileRouterState, FileUpload, FindAllQueryParams,
+    DownloadFileRequestUriParams, FileRouterState, FileUploadV2, FindAllQueryParams,
     UploadFileRequestUriParams,
 };
-use utoipa::{
-    Modify, OpenApi,
-    openapi::{
-        self, HeaderBuilder,
-        security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme},
-    },
-};
+use utoipa::{Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
+
+use crate::template::render;
 
 mod common;
 mod store;
@@ -61,8 +54,8 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Köfte Api V1", title="Köfte",version="0.9", license(identifier="MIT")),
-    components(schemas(TemplateType,OpenApiBinaryResponse, FileUpload,FindAllQueryParams, Template,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
+    info(description = "File Api V1", title="FileApi",version="0.1", license(identifier="MIT")),
+    components(schemas(TemplateType,OpenApiBinaryResponse, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
         upload::routes::find_all_uploads,
@@ -85,14 +78,16 @@ struct SecurityAddon;
 
 impl Modify for SecurityAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        if let Some(components) = openapi.components.as_mut() {
-            components.add_security_scheme(
-                "bearerAuth",
-                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
-            )
+        if let Some(_components) = openapi.components.as_mut() {
+            // disabled
+            // components.add_security_scheme(
+            //     "bearerAuth",
+            //     SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+            // )
         }
     }
 }
+
 fn get_templ_router() -> Router<AppState> {
     Router::new()
         .route("/find-all", get(template::routes::find_all))
@@ -104,10 +99,15 @@ fn get_templ_router() -> Router<AppState> {
         .route("/render", post(template::routes::render))
         .route("/", post(template::routes::upsert))
 }
+
 fn get_file_router() -> Router<AppState> {
-    let body_size_limit = (var("BODY_SIZE_LIMIT").unwrap_or_else(|_| format!("{}", 1024 * 1024)))
-        .parse::<usize>()
-        .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
+    let body_size_limit = (var("BODY_SIZE_LIMIT")
+        .unwrap_or_else(|_| format!("{}", 1024 * 1024 * 50)))
+    .parse::<usize>()
+    .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
+
+    info!("body_size_limit set to {body_size_limit}mb");
+
     Router::new()
         .route("/find-all", get(upload::routes::find_all_uploads))
         .route("/{upl_id}", delete(upload::routes::delete_by_id))
@@ -118,25 +118,23 @@ fn get_file_router() -> Router<AppState> {
 }
 
 #[tokio::main]
-async fn main() {
-    setup_tracing();
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    setup_tracing()?;
     let api_doc = ApiDoc::openapi();
     if args().skip(1).take(1).any(|s| &s == "--generate-openapi") {
         tracing::info!("generate openapi spec...");
-        tokio::fs::remove_file("openapi.json").await.unwrap();
-        tokio::fs::write("openapi.json", api_doc.to_pretty_json().unwrap())
-            .await
-            .unwrap();
+        tokio::fs::remove_file("openapi.json").await?;
+        tokio::fs::write("openapi.json", api_doc.to_pretty_json()?).await?;
         tracing::info!("done.");
         std::process::exit(0);
     }
     let host = var(SERVICE_HOST).unwrap_or_else(|_| String::from("127.0.0.1"));
     let port = var(SERVICE_PORT).unwrap_or_else(|_| String::from("80"));
     let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("file-service"));
-    let addr = SocketAddr::from_str(&format!("{host}:{port}")).unwrap();
-    let client = StoreClient::new(app_name).await.unwrap();
+    let addr = SocketAddr::from_str(&format!("{host}:{port}"))?;
+    let client = StoreClient::new(app_name).await?;
     tracing::info!("listening on {:?}", addr);
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
 
     let app = Router::new()
         .nest("/api/v1/upload", get_file_router())
@@ -152,6 +150,8 @@ async fn main() {
         .merge(SwaggerUi::new("/openapi").url("/api-docs/openapi.json", api_doc))
         .fallback(fallback);
 
+    render::init()?;
     tracing::info!("listening on {:?}", listener);
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app).await?;
+    Ok(())
 }
