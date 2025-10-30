@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::fs::remove_file("openapi.json").await?;
         tokio::fs::write("openapi.json", api_doc.to_pretty_json()?).await?;
         tracing::info!("done.");
-        std::process::exit(0);
+        return Ok(());
     }
     let host = var(SERVICE_HOST).unwrap_or_else(|_| String::from("127.0.0.1"));
     let port = var(SERVICE_PORT).unwrap_or_else(|_| String::from("80"));
