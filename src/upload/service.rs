@@ -160,8 +160,7 @@ impl FileService<'_> {
             thumbnail_id: None,
             original_filename: thumb_filename.clone(),
             bookmarked: Some(false),
-            name: Some(thumb_filename.clone()),
-            internal_name: thumb_filename,
+            name: Some(thumb_filename),
             extension: Some(extension),
             size: thumb.len() as u64,
             public_resource: upl.public_resource,
@@ -169,7 +168,7 @@ impl FileService<'_> {
             ..Default::default()
         };
 
-        let path_buf = PathBuf::from(&self.share_drive_path).join(&thumbnail.internal_name);
+        let path_buf = PathBuf::from(&self.share_drive_path).join(&thumbnail.original_filename);
         tracing::debug!("save thumbnail... {path_buf:?}");
 
         tokio::fs::write(path_buf, thumb.as_bytes())
@@ -196,7 +195,7 @@ impl FileService<'_> {
                 .await
                 .map_err(|e| ServiceError::from(&e))?;
             let (old_internal_name, old_thumbnail_id) = if let Some(upload) = upload {
-                (Some(upload.internal_name), upload.thumbnail_id)
+                (Some(upload.original_filename), upload.thumbnail_id)
             } else {
                 (None, None)
             };
@@ -248,7 +247,7 @@ impl FileService<'_> {
             )
             .await
             .map_err(|e| ServiceError::from(&e))?;
-            upl.internal_name = internal_name;
+            upl.original_filename = internal_name;
         }
 
         self.store
@@ -268,7 +267,8 @@ impl FileService<'_> {
                 .delete_by_id(&upl.id)
                 .await
                 .map_err(|e| ServiceError::from(&e))?;
-            if let Err(e) = tokio::fs::remove_file(self.get_physical_path(&upl.internal_name)).await
+            if let Err(e) =
+                tokio::fs::remove_file(self.get_physical_path(&upl.original_filename)).await
             {
                 tracing::error!("could not delete file {upl:?} => {e}");
             };
@@ -280,7 +280,7 @@ impl FileService<'_> {
                     .await
                     .map_err(|e| ServiceError::from(&e))?;
                 if let Err(e) =
-                    tokio::fs::remove_file(self.get_physical_path(&thumb.internal_name)).await
+                    tokio::fs::remove_file(self.get_physical_path(&thumb.original_filename)).await
                 {
                     tracing::error!("could not delete thumb file {upl:?} => {e}");
                 };
@@ -295,7 +295,7 @@ impl FileService<'_> {
         self.delete_by(doc! {"_id": id}).await
     }
     pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
-        tokio::fs::File::open(self.get_physical_path(&upl.internal_name))
+        tokio::fs::File::open(self.get_physical_path(&upl.original_filename))
             .await
             .map_err(|e| ServiceError::from(&e))
     }

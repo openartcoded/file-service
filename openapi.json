@@ -543,7 +543,6 @@
           "_id",
           "creationDate",
           "originalFilename",
-          "internalName",
           "size",
           "publicResource"
         ],
@@ -585,9 +584,6 @@
               "string",
               "null"
             ]
-          },
-          "internalName": {
-            "type": "string"
           },
           "name": {
             "type": [
