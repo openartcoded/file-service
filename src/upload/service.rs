@@ -202,7 +202,6 @@ impl FileService<'_> {
             } else {
                 (None, None)
             };
-            let extension = &upl.extension;
             let internal_name = self.get_filename_on_disk(&upl);
             if let Some(old_internal_name) = old_internal_name {
                 upl.updated_date = Some(bson::DateTime::now());
@@ -245,7 +244,7 @@ impl FileService<'_> {
             )
             .await
             .map_err(|e| ServiceError::from(&e))?;
-            upl.name = internal_name;
+            upl.name = Some(internal_name);
         }
 
         self.store
