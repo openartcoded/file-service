@@ -106,7 +106,10 @@ fn get_file_router() -> Router<AppState> {
     .parse::<usize>()
     .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
 
-    info!("body_size_limit set to {body_size_limit}mb");
+    info!(
+        "body_size_limit set to {:.2}mb",
+        ((body_size_limit as f64) / 1024. / 1024.)
+    );
 
     Router::new()
         .route("/find-all", get(upload::routes::find_all_uploads))
