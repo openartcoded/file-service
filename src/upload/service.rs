@@ -103,7 +103,7 @@ impl FileService<'_> {
                         .map_err(|e| ServiceError::from(&e))
                         .map(|im| (Some(IMAGE_PNG.to_string()), im)),
                     Err(e) => {
-                        tracing::error!("error converting file {}: {} ", upl.original_filename, e);
+                        tracing::error!("error converting file {}: {} ", internal_name, e);
                         return Ok(None);
                     }
                 }
@@ -167,7 +167,8 @@ impl FileService<'_> {
             ..Default::default()
         };
 
-        let path_buf = PathBuf::from(&self.share_drive_path).join(&thumbnail.original_filename);
+        let path_buf =
+            PathBuf::from(&self.share_drive_path).join(self.get_filename_on_disk(&thumbnail));
         tracing::debug!("save thumbnail... {path_buf:?}");
 
         tokio::fs::write(path_buf, thumb.as_bytes())
@@ -194,17 +195,15 @@ impl FileService<'_> {
                 .await
                 .map_err(|e| ServiceError::from(&e))?;
             let (old_internal_name, old_thumbnail_id) = if let Some(upload) = upload {
-                (Some(upload.original_filename), upload.thumbnail_id)
+                (
+                    Some(self.get_filename_on_disk(&upload)),
+                    upload.thumbnail_id,
+                )
             } else {
                 (None, None)
             };
             let extension = &upl.extension;
-            let internal_name = format!(
-                "{}.{}",
-                upl.id,
-                extension.as_ref().cloned().unwrap_or_else(|| "".into())
-            );
-
+            let internal_name = self.get_filename_on_disk(&upl);
             if let Some(old_internal_name) = old_internal_name {
                 upl.updated_date = Some(bson::DateTime::now());
                 // override file
@@ -246,7 +245,7 @@ impl FileService<'_> {
             )
             .await
             .map_err(|e| ServiceError::from(&e))?;
-            upl.original_filename = internal_name;
+            upl.name = internal_name;
         }
 
         self.store
@@ -267,7 +266,8 @@ impl FileService<'_> {
                 .await
                 .map_err(|e| ServiceError::from(&e))?;
             if let Err(e) =
-                tokio::fs::remove_file(self.get_physical_path(&upl.original_filename)).await
+                tokio::fs::remove_file(self.get_physical_path(&self.get_filename_on_disk(&upl)))
+                    .await
             {
                 tracing::error!("could not delete file {upl:?} => {e}");
             };
@@ -278,14 +278,23 @@ impl FileService<'_> {
                     .delete_by_id(&thumb.id)
                     .await
                     .map_err(|e| ServiceError::from(&e))?;
-                if let Err(e) =
-                    tokio::fs::remove_file(self.get_physical_path(&thumb.original_filename)).await
+                if let Err(e) = tokio::fs::remove_file(
+                    self.get_physical_path(&self.get_filename_on_disk(&thumb)),
+                )
+                .await
                 {
                     tracing::error!("could not delete thumb file {upl:?} => {e}");
                 };
             }
         }
         Ok(())
+    }
+    pub fn get_filename_on_disk(&self, file_upload: &FileUploadV2) -> String {
+        format!(
+            "{}.{}",
+            file_upload.id,
+            file_upload.extension.clone().unwrap_or_else(|| "".into())
+        )
     }
     pub async fn delete_by_correlation_id(&self, id: &str) -> Result<(), ServiceError> {
         self.delete_by(doc! {"correlationId": id}).await
@@ -294,7 +303,7 @@ impl FileService<'_> {
         self.delete_by(doc! {"_id": id}).await
     }
     pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
-        tokio::fs::File::open(self.get_physical_path(&upl.original_filename))
+        tokio::fs::File::open(self.get_physical_path(&self.get_filename_on_disk(upl)))
             .await
             .map_err(|e| ServiceError::from(&e))
     }
