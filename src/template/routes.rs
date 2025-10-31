@@ -7,7 +7,6 @@ use axum::{
     response::{AppendHeaders, IntoResponse},
 };
 use axum_extra::headers::ContentType;
-use chrono::Local;
 use mime_guess::mime::{APPLICATION_PDF, TEXT_XML};
 
 use mongodb::{bson::doc, options::FindOneAndReplaceOptions};
@@ -222,7 +221,7 @@ pub async fn upsert(
             let i = template_collection.find_one(doc! {"_id": id}).await;
             match i.map_err(handle_err)? {
                 Some(mut i) => {
-                    i.updated_date = Some(Local::now().to_utc());
+                    i.updated_date = Some(bson::DateTime::now());
                     TemplateWrapper(i)
                 }
                 _ => Default::default(),

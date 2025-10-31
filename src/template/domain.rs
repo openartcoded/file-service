@@ -1,23 +1,22 @@
 use std::ops::{Deref, DerefMut};
 
-use chrono::{DateTime, Local, Utc};
 use std::fmt::Display;
 use utoipa::{IntoParams, ToSchema};
-
-use ::serde::{Deserialize, Serialize};
 
 use crate::{
     common::util::{IdGenerator, StoreCollection},
     store::{Identifiable, StoreClient},
 };
+use ::serde::{Deserialize, Serialize};
+use bson::DateTime;
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateV2 {
     #[serde(rename = "_id")]
     pub id: String,
-    pub creation_date: DateTime<Utc>,
-    pub updated_date: Option<DateTime<Utc>>,
+    pub creation_date: DateTime,
+    pub updated_date: Option<DateTime>,
     pub file_id: String,
     pub template_type: TemplateType,
     pub template_context: Context,
@@ -109,7 +108,7 @@ impl Default for TemplateWrapper {
     fn default() -> Self {
         Self(TemplateV2 {
             id: IdGenerator.get(),
-            creation_date: Local::now().to_utc(),
+            creation_date: DateTime::now(),
             updated_date: Default::default(),
             file_id: Default::default(),
             template_type: TemplateType::Html,

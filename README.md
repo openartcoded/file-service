@@ -19,7 +19,7 @@ services:
 | DEFAULT_TENANT                | Default database name                     | artcoded_test                             |
 | SERVICE_PORT                  | Port for the service                      | 80                                        |
 | SERVICE_APPLICATION_NAME      | Application name of the service           | file-service                              |
-| FILE_SERVICE_OLLECTION_NAME  | Collection name for file service          | fileUpload                                |
+| FILE_SERVICE_COLLECTION_NAME  | Collection name for file service          | fileUpload                                |
 | TEMPL_SERVICE_COLLECTION_NAME | Collection name for template service      | template                                  |
 | SHARE_DRIVE_PATH              | Path to the shared drive                  | $HOME/file-service or $TMP/file-service   |
 | THUMB_HEIGHT                  | Thumbnail height                          | 300                                       |

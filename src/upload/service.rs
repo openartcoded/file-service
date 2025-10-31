@@ -6,7 +6,6 @@ use std::{
 };
 
 use axum::extract::multipart::Field;
-use chrono::Local;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
 use mongodb::bson::{Document, doc};
@@ -207,7 +206,7 @@ impl FileService<'_> {
             );
 
             if let Some(old_internal_name) = old_internal_name {
-                upl.updated_date = Some(Local::now().to_utc());
+                upl.updated_date = Some(bson::DateTime::now());
                 // override file
                 tracing::info!("removing old file {}", old_internal_name);
                 if let Err(e) = tokio::fs::remove_file(

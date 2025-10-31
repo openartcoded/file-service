@@ -1,6 +1,5 @@
 use std::{path::PathBuf, str::FromStr};
 
-use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
@@ -11,17 +10,17 @@ use crate::{
     },
     store::{Identifiable, StoreClient},
 };
-
+use bson::DateTime;
 #[derive(Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUploadV2 {
     #[serde(rename = "_id")]
     pub id: String,
-    pub creation_date: DateTime<Utc>,
-    pub updated_date: Option<DateTime<Utc>>,
+    pub creation_date: DateTime,
+    pub updated_date: Option<DateTime>,
     pub content_type: Option<String>,
     pub bookmarked: Option<bool>,
-    pub bookmarked_date: Option<DateTime<Utc>>,
+    pub bookmarked_date: Option<DateTime>,
     pub name: Option<String>,
     pub thumbnail_id: Option<String>,
     pub original_filename: String,
@@ -78,7 +77,7 @@ impl Default for FileUploadV2 {
             content_type: Default::default(),
             original_filename: Default::default(),
             extension: Default::default(),
-            creation_date: Local::now().to_utc(),
+            creation_date: DateTime::now(),
             updated_date: Default::default(),
             thumbnail_id: Default::default(),
             size: Default::default(),
