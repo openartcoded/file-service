@@ -334,12 +334,6 @@ pub async fn write_field_to_temp_file(
         tokio::fs::create_dir(&temp_volume).await?;
     }
     let temp_file_path = temp_volume.join(file_name);
-    if temp_file_path.exists() {
-        tracing::info!(
-            "file {file_name} exists. removing: {:?}",
-            tokio::fs::remove_file(&temp_file_path).await?
-        );
-    }
 
     let mut temp_file = {
         let mut o = tokio::fs::OpenOptions::new();
