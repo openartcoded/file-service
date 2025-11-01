@@ -254,11 +254,11 @@ pub async fn make_thumb(
             .await?;
         upl.thumbnail_id = thumb;
         upl.updated_date = Some(DateTime::now());
-        let saved = fs_repository
+        let _ = fs_repository
             .upsert(&upl.id, &upl)
             .await
             .map_err(|e| ServiceError(e.to_string()))?;
-        return Ok((StatusCode::OK, Json(saved)).into_response());
+        return Ok((StatusCode::OK, Json(Some(upl))).into_response());
     }
 
     tracing::debug!("could not save thumb!");
