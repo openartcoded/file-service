@@ -163,6 +163,7 @@ impl FileService<'_> {
             thumbnail_id: None,
             original_filename: thumb_filename.clone(),
             bookmarked: Some(false),
+            thumb: Some(true),
             name: Some(thumb_filename),
             extension: Some(extension),
             size: thumb.len() as u64,
