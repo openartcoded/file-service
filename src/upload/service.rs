@@ -90,11 +90,11 @@ impl FileService<'_> {
             None
         }
     }
-    fn get_physical_path(&self, internal_name: &str) -> PathBuf {
+    pub fn get_physical_path(&self, internal_name: &str) -> PathBuf {
         PathBuf::from(self.share_drive_path).join(internal_name)
     }
 
-    async fn make_thumbnail(
+    pub async fn make_thumbnail(
         &self,
         upl: &FileUploadV2,
         internal_name: &str,

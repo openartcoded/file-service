@@ -9,6 +9,7 @@ use axum::extract::{Multipart, Query, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{StatusCode, header};
 use axum::response::{AppendHeaders, IntoResponse};
+use bson::DateTime;
 use mime_guess::mime::APPLICATION_OCTET_STREAM;
 use mongodb::bson::doc;
 use serde_json::json;
@@ -199,6 +200,71 @@ pub async fn delete_by_id(
         )
     }
 }
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/upload/ping",
+    responses(
+        (status = 200, description = "Ping")
+    ),
+    // security(("bearerAuth" = []))
+)]
+pub async fn ping() -> impl IntoResponse {
+    (StatusCode::OK, Json(json! ({"result": "pong"}))).into_response()
+}
+#[utoipa::path(
+    post,
+    path = "/api/v1/upload/{id}/make-thumb",
+    responses(
+        (status = 200, description = "Make thumbnail", body=Option<FileUploadV2>)
+    ),
+    // security(("bearerAuth" = []))
+)]
+pub async fn make_thumb(
+    State(FileRouterState {
+        client,
+        collection,
+        share_drive: ShareDrive(share_drive),
+    }): State<FileRouterState>,
+
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> axum::response::Result<axum::response::Response> {
+    let fs_repository: StoreRepository<FileUploadV2> =
+        StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
+    let file_service = FileService {
+        share_drive_path: &share_drive,
+        store: &fs_repository,
+    };
+
+    let upl = fs_repository
+        .find_by_id(&id)
+        .await
+        .map_err(|e| ServiceError(e.to_string()))?;
+    if let Some(mut upl) = upl
+        && upl.thumbnail_id.is_none()
+        && !(matches!(upl.thumb, Some(true)))
+    {
+        let file_name = file_service.get_filename_on_disk(&upl);
+        let thumb = file_service
+            .make_thumbnail(
+                &upl,
+                &file_name,
+                &file_service.get_physical_path(&file_name),
+            )
+            .await?;
+        upl.thumbnail_id = thumb;
+        upl.updated_date = Some(DateTime::now());
+        let saved = fs_repository
+            .upsert(&upl.id, &upl)
+            .await
+            .map_err(|e| ServiceError(e.to_string()))?;
+        return Ok((StatusCode::OK, Json(saved)).into_response());
+    }
+
+    tracing::debug!("could not save thumb!");
+    Ok((StatusCode::OK, Json(None as Option<FileUploadV2>)).into_response())
+}
+
 #[utoipa::path(
     post,
     path = "/api/v1/upload",
@@ -235,6 +301,7 @@ pub async fn upload(
                     .map(|ct| ct.into())
             }),
             correlation_id: query.correlation_id.take(),
+            thumb: Some(false),
             extension: Path::new(&file_name)
                 .extension()
                 .map(|s| s.to_string_lossy().to_string()),
@@ -254,23 +321,14 @@ pub async fn upload(
         uploads.insert(file_name, (file_upload, temp_file_path));
     }
 
-    if uploads.len() == 1 {
-        let Some((_, (mut upl, temp_file_path))) = uploads.into_iter().last() else {
-            unreachable!("should never happen")
-        };
-
-        if let Some(id) = query.id.take() {
-            upl.id = id;
-        }
-
-        upl.public_resource = query.is_public.unwrap_or(false);
-
-        let repository: StoreRepository<FileUploadV2> =
-            StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
-        let file_service = FileService {
-            share_drive_path: &share_drive,
-            store: &repository,
-        };
+    let mut uploads_resp = Vec::with_capacity(uploads.len());
+    let repository: StoreRepository<FileUploadV2> =
+        StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
+    let file_service = FileService {
+        share_drive_path: &share_drive,
+        store: &repository,
+    };
+    for (_, (upl, temp_file_path)) in uploads {
         let upl = file_service
             .upload(
                 upl,
@@ -278,26 +336,12 @@ pub async fn upload(
                 query.without_thumbnail.unwrap_or(false),
             )
             .await?;
-
-        Ok((StatusCode::OK, Json(upl)).into_response())
-    } else {
-        let mut uploads_resp = Vec::with_capacity(uploads.len());
-        let repository: StoreRepository<FileUploadV2> =
-            StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
-        let file_service = FileService {
-            share_drive_path: &share_drive,
-            store: &repository,
-        };
-        for (_, (upl, temp_file_path)) in uploads {
-            let upl = file_service
-                .upload(
-                    upl,
-                    Some(&temp_file_path),
-                    query.without_thumbnail.unwrap_or(false),
-                )
-                .await?;
-            uploads_resp.push(upl);
-        }
-        Ok((StatusCode::OK, Json(uploads_resp)).into_response())
+        uploads_resp.push(upl);
     }
+    let json_resp = if uploads_resp.len() == 1 {
+        (StatusCode::OK, Json(uploads_resp.remove(0))).into_response()
+    } else {
+        (StatusCode::OK, Json(uploads_resp)).into_response()
+    };
+    Ok(json_resp)
 }

@@ -54,10 +54,12 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "File Api V1", title="FileApi",version="0.3", license(identifier="MIT")),
+    info(description = "File Api V1", title="FileApi",version="0.4", license(identifier="MIT")),
     components(schemas(TemplateType,OpenApiBinaryResponse, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
+        upload::routes::make_thumb,
+        upload::routes::ping,
         upload::routes::find_all_uploads,
         upload::routes::download,
         upload::routes::upload,
@@ -113,7 +115,9 @@ fn get_file_router() -> Router<AppState> {
 
     Router::new()
         .route("/find-all", get(upload::routes::find_all_uploads))
+        .route("/ping", get(upload::routes::ping))
         .route("/{upl_id}", delete(upload::routes::delete_by_id))
+        .route("/{id}/make-thumb", post(upload::routes::make_thumb))
         .route("/download", get(upload::routes::download))
         .route("/metadata", get(upload::routes::metadata))
         .route("/", post(upload::routes::upload))
