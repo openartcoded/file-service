@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env::var;
+use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -14,6 +15,7 @@ use serde_json::json;
 use tokio_util::io::ReaderStream;
 
 use crate::common::constant::{DEFAULT_TENANT, FILE_SERVICE_COLLECTION_NAME, SHARE_DRIVE_PATH};
+use crate::common::domain::ServiceError;
 use crate::common::util::{OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection};
 use crate::store::{Repository, StoreClient, StoreRepository};
 use crate::upload::domain::FindAllQueryParams;
@@ -24,7 +26,7 @@ use super::domain::{
     UploadFileRequestUriParams,
 };
 
-pub async fn make_state(client: StoreClient) -> FileRouterState {
+pub async fn make_state(client: StoreClient) -> Result<FileRouterState, Box<dyn Error>> {
     let share_drive_path: String = std::env::var(SHARE_DRIVE_PATH).unwrap_or_else(|_| {
         dirs::home_dir()
             .unwrap_or_else(std::env::temp_dir)
@@ -33,16 +35,16 @@ pub async fn make_state(client: StoreClient) -> FileRouterState {
             .to_string()
     });
     tracing::info!("share path: {}", share_drive_path);
-    if !PathBuf::from_str(&share_drive_path).unwrap().exists() {
-        tokio::fs::create_dir(&share_drive_path).await.unwrap();
+    if !PathBuf::from_str(&share_drive_path)?.exists() {
+        tokio::fs::create_dir(&share_drive_path).await?;
     }
     let collection_name: String =
         var(FILE_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("fileUpload"));
-    FileRouterState {
+    Ok(FileRouterState {
         client,
         share_drive: ShareDrive(share_drive_path),
         collection: StoreCollection(collection_name),
-    }
+    })
 }
 #[utoipa::path(
     get,
@@ -85,7 +87,7 @@ pub async fn download(
         share_drive: ShareDrive(share_drive),
     }): State<FileRouterState>,
     Query(DownloadFileRequestUriParams { id }): Query<DownloadFileRequestUriParams>,
-) -> impl IntoResponse {
+) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Download route entered!");
 
     tracing::debug!("trying to fetch document with id {id}");
@@ -97,7 +99,7 @@ pub async fn download(
                 share_drive_path: &share_drive,
                 store: &repo,
             };
-            let file_handle = file_service.download(&file).await.unwrap();
+            let file_handle = file_service.download(&file).await?;
             let stream = ReaderStream::new(file_handle);
             let body = axum::body::Body::from_stream(stream);
 
@@ -118,9 +120,9 @@ pub async fn download(
 
             let headers = AppendHeaders([content_type, content_header]);
 
-            (headers, body).into_response()
+            Ok((headers, body).into_response())
         }
-        None => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
+        None => Err((StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into()),
     }
 }
 
@@ -215,13 +217,16 @@ pub async fn upload(
     }): State<FileRouterState>,
     Query(mut query): Query<UploadFileRequestUriParams>,
     mut multipart: Multipart,
-) -> impl IntoResponse {
+) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Upload route entered!");
 
     let mut uploads = HashMap::new();
 
-    while let Some(mut field) = multipart.next_field().await.unwrap() {
-        let file_name = field.file_name().unwrap().to_string();
+    while let Some(mut field) = multipart.next_field().await? {
+        let file_name = field
+            .file_name()
+            .ok_or(ServiceError("no file name in field".into()))?
+            .to_string();
 
         let mut file_upload = FileUploadV2 {
             content_type: field.content_type().map(|ct| ct.into()).or_else(|| {
@@ -238,8 +243,9 @@ pub async fn upload(
             name: Some(file_name.to_string()),
             ..Default::default()
         };
-        let (temp_file_path, len) =
-            write_field_to_temp_file(&mut field, &share_drive, &file_name).await;
+        let (temp_file_path, len) = write_field_to_temp_file(&mut field, &share_drive, &file_name)
+            .await
+            .map_err(|e| ServiceError(e.to_string()))?;
 
         file_upload.size = len;
 
@@ -271,10 +277,9 @@ pub async fn upload(
                 Some(&temp_file_path),
                 query.without_thumbnail.unwrap_or(false),
             )
-            .await
-            .unwrap();
+            .await?;
 
-        (StatusCode::OK, Json(upl)).into_response()
+        Ok((StatusCode::OK, Json(upl)).into_response())
     } else {
         let mut uploads_resp = Vec::with_capacity(uploads.len());
         let repository: StoreRepository<FileUploadV2> =
@@ -290,10 +295,9 @@ pub async fn upload(
                     Some(&temp_file_path),
                     query.without_thumbnail.unwrap_or(false),
                 )
-                .await
-                .unwrap();
+                .await?;
             uploads_resp.push(upl);
         }
-        (StatusCode::OK, Json(uploads_resp)).into_response()
+        Ok((StatusCode::OK, Json(uploads_resp)).into_response())
     }
 }

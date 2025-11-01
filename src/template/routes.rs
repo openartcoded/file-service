@@ -262,7 +262,8 @@ pub async fn upsert(
 
             let (temp_path, len) =
                 write_field_to_temp_file(&mut field, &file_router_state.share_drive.0, &file_name)
-                    .await;
+                    .await
+                    .map_err(|s| ServiceError(s.to_string()))?;
 
             match &template_type {
                 TemplateType::Html => {

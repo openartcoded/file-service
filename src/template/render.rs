@@ -167,6 +167,8 @@ fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
 
 #[cfg(test)]
 mod test {
+    use std::error::Error;
+
     use chrono::{DateTime, NaiveDate, NaiveDateTime};
 
     use serde::{Deserialize, Serialize};
@@ -176,7 +178,7 @@ mod test {
     use super::html_to_pdf;
 
     #[tokio::test]
-    async fn test_html_to_pdf() {
+    async fn test_html_to_pdf() -> Result<(), Box<dyn Error>> {
         let templ = r#"
         <p>Greeting, {{name}}! You are {{age}} years old!</p>
         <ul>
@@ -197,16 +199,16 @@ mod test {
             }
             }),
         )
-        .await
-        .unwrap();
+        .await?;
         let p = dirs::home_dir()
             .unwrap_or_else(std::env::temp_dir)
             .join(format!("{}.pdf", IdGenerator.get()));
-        tokio::fs::write(&p, res).await.unwrap();
+        tokio::fs::write(&p, res).await?;
         println!("path {p:?}");
+        Ok(())
     }
     #[tokio::test]
-    async fn test_date_and_time() {
+    async fn test_date_and_time() -> Result<(), Box<dyn Error>> {
         #[derive(Serialize, Deserialize)]
         struct Whatever {
             dt: NaiveDateTime,
@@ -215,28 +217,27 @@ mod test {
 
         let ctx = Whatever {
             dt: DateTime::from_timestamp_millis(1662921288000)
-                .unwrap()
+                .ok_or("no dt")?
                 .naive_utc(),
-            d: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            d: NaiveDate::from_ymd_opt(2024, 1, 1).ok_or("no nd")?,
         };
 
         let engine = get_jinja_engine();
         assert_eq!(
             "01/01/2024",
-            engine.render_str(r#"{{ d|dateformat }}"#, &ctx).unwrap()
+            engine.render_str(r#"{{ d|dateformat }}"#, &ctx)?
         );
         assert_eq!(
             "11/09/2022 18:34",
-            engine
-                .render_str(r#"{{ dt|datetimeformat }}"#, &ctx)
-                .unwrap()
+            engine.render_str(r#"{{ dt|datetimeformat }}"#, &ctx)?
         );
 
         assert_eq!(
             "11/09/2022 18:34:48",
             engine
                 .render_str(r#"{{ dt|datetimeformat(format="[day]/[month]/[year] [hour]:[minute]:[second]",tz='Europe/Paris') }}"#, ctx)
-                .unwrap()
+                ?
         );
+        Ok(())
     }
 }

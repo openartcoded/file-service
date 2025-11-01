@@ -1,11 +1,13 @@
 use std::{
     env::var,
+    error::Error,
     io::{Cursor, Read, Seek, SeekFrom},
     path::PathBuf,
     sync::OnceLock,
 };
 
 use axum::extract::multipart::Field;
+use futures::TryStreamExt;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
 use mongodb::bson::{Document, doc};
@@ -13,6 +15,8 @@ use tokio::{
     fs::File,
     io::{self, AsyncWriteExt},
 };
+use tokio_util::io::StreamReader;
+use tracing::debug;
 
 use crate::{
     common::{
@@ -321,31 +325,36 @@ pub async fn write_field_to_temp_file(
     field: &mut Field<'_>,
     volume: impl Into<PathBuf>,
     file_name: &str,
-) -> (PathBuf, u64) {
+) -> Result<(PathBuf, u64), Box<dyn Error>> {
     let volume = volume.into();
     let temp_volume = volume.join("tmp"); // necessary to
     // then move the file in the same volume
     tracing::debug!("temp_volume: - {temp_volume:?}");
     if !temp_volume.exists() {
-        tokio::fs::create_dir(&temp_volume).await.unwrap();
+        tokio::fs::create_dir(&temp_volume).await?;
     }
     let temp_file_path = temp_volume.join(file_name);
     if temp_file_path.exists() {
         tracing::info!(
             "file {file_name} exists. removing: {:?}",
-            tokio::fs::remove_file(&temp_file_path).await
+            tokio::fs::remove_file(&temp_file_path).await?
         );
     }
 
     let mut temp_file = {
         let mut o = tokio::fs::OpenOptions::new();
-        o.append(true).create(true).open(&temp_file_path).await
-    }
-    .unwrap();
+        o.write(true)
+            .truncate(true)
+            .create(true)
+            .open(&temp_file_path)
+            .await
+    }?;
 
-    while let Ok(Some(chunk)) = field.chunk().await {
-        temp_file.write_all(&chunk).await.unwrap();
-    }
-    let metadata = temp_file.metadata().await.unwrap();
-    (temp_file_path, metadata.len())
+    debug!("writing to temp file...");
+    let mut reader = StreamReader::new(field.map_err(std::io::Error::other));
+    let bytes_written = tokio::io::copy(&mut reader, &mut temp_file).await?;
+    temp_file.flush().await?;
+
+    debug!("file written");
+    Ok((temp_file_path, bytes_written))
 }

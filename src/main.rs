@@ -147,7 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         )
         .with_state(AppState {
-            file_state: upload::routes::make_state(client.clone()).await,
+            file_state: upload::routes::make_state(client.clone()).await?,
             templ_state: template::routes::make_state(client),
         })
         .merge(SwaggerUi::new("/openapi").url("/api-docs/openapi.json", api_doc))
