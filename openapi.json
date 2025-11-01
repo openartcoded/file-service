@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.3"
+    "version": "0.4"
   },
   "paths": {
     "/api/v1/template": {
@@ -492,6 +492,19 @@
         }
       }
     },
+    "/api/v1/upload/ping": {
+      "get": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "Ping"
+          }
+        }
+      }
+    },
     "/api/v1/upload/{id}": {
       "delete": {
         "tags": [
@@ -511,6 +524,43 @@
         "responses": {
           "200": {
             "description": "Delete a file by id"
+          }
+        }
+      }
+    },
+    "/api/v1/upload/{id}/make-thumb": {
+      "post": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "make_thumb",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Make thumbnail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FileUploadV2"
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
