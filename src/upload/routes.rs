@@ -96,10 +96,13 @@ pub async fn download(
         .await
     {
         Some((repo, file)) => {
+            tracing::debug!("file found in db! {:?}", file);
             let file_service = FileService {
                 share_drive_path: &share_drive,
                 store: &repo,
             };
+            tracing::debug!("downloading file...");
+
             let file_handle = file_service.download(&file).await?;
             let stream = ReaderStream::new(file_handle);
             let body = axum::body::Body::from_stream(stream);

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::Collection;
+use mongodb::bson::oid::ObjectId;
 use mongodb::bson::{self, Document, doc};
 use mongodb::options::ReplaceOneModel;
 pub use mongodb::options::{FindOneAndReplaceOptions, FindOptions};
@@ -324,7 +325,7 @@ pub trait Repository<
     async fn find_by_id(&self, id: &str) -> Result<Option<T>, StoreError> {
         let collection = self.get_collection();
         let res = collection
-            .find_one(doc! {"_id": id})
+            .find_one(get_document_filter_by_maybe_object_id(id))
             .await
             .map_err(|e| StoreError { msg: e.to_string() })?;
         Ok(res)
@@ -342,7 +343,8 @@ pub trait Repository<
 
     #[instrument(level = "debug")]
     async fn delete_by_id(&self, id: &str) -> Result<Option<T>, StoreError> {
-        self.delete_one_by_query(doc! {"_id": id}).await
+        self.delete_one_by_query(get_document_filter_by_maybe_object_id(id))
+            .await
     }
 
     #[instrument(level = "debug")]
@@ -377,7 +379,7 @@ pub trait Repository<
             .upsert(Some(true))
             .build();
         let res = collection
-            .find_one_and_replace(doc! {"_id": id}, entity)
+            .find_one_and_replace(get_document_filter_by_maybe_object_id(id), entity)
             .with_options(options)
             .await
             .map_err(|e| StoreError { msg: e.to_string() })?;
@@ -407,5 +409,16 @@ pub trait Repository<
             .map_err(|e| StoreError { msg: e.to_string() })?;
 
         Ok(())
+    }
+}
+pub fn get_document_filter_by_maybe_object_id(id: &str) -> Document {
+    match ObjectId::parse_str(id) {
+        Ok(oid) => doc! {
+        "$or": [
+            { "_id": &id },
+            { "_id": oid }
+        ]
+            },
+        Err(_) => doc! { "_id": &id },
     }
 }

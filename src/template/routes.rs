@@ -19,7 +19,7 @@ use crate::{
         domain::ServiceError,
         util::{OpenApiBinaryResponse, OpenApiDocUploadForm, QueryIds, StoreCollection},
     },
-    store::{Repository, StoreClient, StoreRepository},
+    store::{Repository, StoreClient, StoreRepository, get_document_filter_by_maybe_object_id},
     template::domain::{TemplateType, TemplateV2, TemplateWrapper},
     upload::{
         domain::{FileRouterState, FileUploadV2},
@@ -218,7 +218,9 @@ pub async fn upsert(
 
     let maybe_template = {
         if let Some(id) = query.id {
-            let i = template_collection.find_one(doc! {"_id": id}).await;
+            let i = template_collection
+                .find_one(get_document_filter_by_maybe_object_id(&id))
+                .await;
             match i.map_err(handle_err)? {
                 Some(mut i) => {
                     i.updated_date = Some(bson::DateTime::now());
@@ -322,7 +324,10 @@ pub async fn upsert(
         }
     }
     template_collection
-        .find_one_and_replace(doc! {"_id": &template.id}, &template)
+        .find_one_and_replace(
+            doc! {"_id": get_document_filter_by_maybe_object_id(&template.id)},
+            &template,
+        )
         .with_options(options)
         .await
         .map_err(handle_err)?;

@@ -157,7 +157,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(SwaggerUi::new("/openapi").url("/api-docs/openapi.json", api_doc))
         .fallback(fallback);
 
-    render::init()?;
+    if !cfg!(debug_assertions) {
+        render::init()?;
+    }
     tracing::info!("listening on {:?}", listener);
     axum::serve(listener, app).await?;
     Ok(())

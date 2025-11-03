@@ -24,7 +24,7 @@ use crate::{
         domain::ServiceError,
         util::StoreCollection,
     },
-    store::{Repository, StoreClient, StoreRepository},
+    store::{Repository, StoreClient, StoreRepository, get_document_filter_by_maybe_object_id},
     upload::soffice::{ConvertType, convert_to},
 };
 
@@ -67,7 +67,10 @@ impl FileService<'_> {
         ) -> Option<FileUploadV2> {
             match repository.find_by_id(id).await {
                 Ok(Some(response)) => Some(response),
-                Ok(None) => None,
+                Ok(None) => {
+                    tracing::debug!("could not find file with id {id}");
+                    None
+                }
                 Err(e) => {
                     tracing::error!("db error {e}");
                     None
@@ -304,7 +307,8 @@ impl FileService<'_> {
         self.delete_by(doc! {"correlationId": id}).await
     }
     pub async fn delete_by_id(&self, id: &str) -> Result<(), ServiceError> {
-        self.delete_by(doc! {"_id": id}).await
+        self.delete_by(get_document_filter_by_maybe_object_id(id))
+            .await
     }
     pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
         tokio::fs::File::open(self.get_physical_path(&self.get_filename_on_disk(upl)))

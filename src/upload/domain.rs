@@ -1,8 +1,5 @@
 use std::{path::PathBuf, str::FromStr};
 
-use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
-
 use crate::{
     common::{
         domain::ServiceError,
@@ -11,10 +8,29 @@ use crate::{
     store::{Identifiable, StoreClient},
 };
 use bson::DateTime;
+use mongodb::bson::Bson;
+use serde::{Deserialize, Deserializer, Serialize};
+use utoipa::{IntoParams, ToSchema};
+
+fn object_id_to_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Bson::deserialize(deserializer)?;
+    match value {
+        Bson::ObjectId(oid) => Ok(oid.to_string()),
+        Bson::String(s) => Ok(s),
+        other => Err(serde::de::Error::custom(format!(
+            "unexpected _id type: {:?}",
+            other
+        ))),
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUploadV2 {
-    #[serde(rename = "_id")]
+    #[serde(rename = "_id", deserialize_with = "object_id_to_string")]
     pub id: String,
     pub creation_date: DateTime,
     pub updated_date: Option<DateTime>,
