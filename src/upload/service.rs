@@ -7,6 +7,7 @@ use std::{
 use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
 use axum::extract::multipart::Field;
 use futures::TryStreamExt;
+use headless_chrome::protocol::cdp::Page;
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
 use mongodb::bson::{Document, doc};
@@ -24,6 +25,7 @@ use crate::{
         util::{IdGenerator, StoreCollection},
     },
     store::{Repository, StoreClient, StoreRepository, get_document_filter_by_maybe_object_id},
+    template::render::get_chromium_tab,
     upload::soffice::{ConvertType, convert_to},
 };
 
@@ -79,17 +81,21 @@ impl FileService {
         temp_file_path: &PathBuf,
     ) -> Result<Option<String>, ServiceError> {
         let (extension, thumb) = {
-            let (ct, image) = if !upl.is_image() {
-                match convert_to(temp_file_path, ConvertType::Png).await {
-                    Ok(bytes) => image::load_from_memory(&bytes)
-                        .map_err(|e| ServiceError::from(&e))
-                        .map(|im| (Some(IMAGE_PNG.to_string()), im)),
-                    Err(e) => {
-                        tracing::error!("error converting file {}: {} ", internal_name, e);
-                        return Ok(None);
-                    }
-                }
-            } else {
+            async fn chrome_proc(temp_file_path: &PathBuf) -> Result<Vec<u8>, ServiceError> {
+                // first try with chromium as it seems faster
+                let tab = get_chromium_tab().map_err(|e| ServiceError(e.to_string()))?;
+                let file_url = format!("file://{}", temp_file_path.display());
+                tab.navigate_to(&file_url)
+                    .map_err(|e| ServiceError(e.to_string()))?;
+                tab.wait_until_navigated()
+                    .map_err(|e| ServiceError(e.to_string()))?;
+                let png_data = tab
+                    .capture_screenshot(Page::CaptureScreenshotFormatOption::Png, None, None, true)
+                    .map_err(|e| ServiceError(e.to_string()))?;
+                Ok(png_data) as Result<Vec<u8>, ServiceError>
+            };
+
+            let (ct, image) = if upl.is_supported_image() {
                 let bytes = tokio::fs::read(temp_file_path)
                     .await
                     .map_err(|e| ServiceError::from(&e))?;
@@ -97,7 +103,33 @@ impl FileService {
                 image::load_from_memory(&bytes)
                     .map_err(|e| ServiceError::from(&e))
                     .map(|im| (upl.content_type.clone(), im))
+            } else {
+                match convert_to(temp_file_path, ConvertType::Png)
+                    .await
+                    .map_err(|e| ServiceError(e.to_string()))
+                {
+                    Ok(bytes) => image::load_from_memory(&bytes)
+                        .map_err(|e| ServiceError::from(&e))
+                        .map(|im| (Some(IMAGE_PNG.to_string()), im)),
+                    Err(e) => {
+                        tracing::error!(
+                            "error converting file {}: {}, try with chromium...",
+                            internal_name,
+                            e
+                        );
+                        match chrome_proc(temp_file_path).await {
+                            Ok(bytes) => image::load_from_memory(&bytes)
+                                .map_err(|e| ServiceError(e.to_string()))
+                                .map(|im| (Some(IMAGE_PNG.to_string()), im)),
+                            Err(e) => {
+                                tracing::error!("error converting file {}: {} ", internal_name, e);
+                                return Ok(None);
+                            }
+                        }
+                    }
+                }
             }?;
+
             let thumb = image.thumbnail(*THUMB_W, *THUMB_H);
 
             let Some(ct) = ct else {
@@ -236,17 +268,19 @@ impl FileService {
                     .make_thumbnail(&upl, &internal_name, &final_file_path)
                     .await
                 {
-                    Err(e) => tracing::error!("could not generate thumbnail for upl {upl:?}, {e}"),
+                    Err(err) => {
+                        tracing::error!("could not generate thumbnail for upl {upl:?}, {err}")
+                    }
                     Ok(o) => {
                         upl.thumbnail_id = o;
-                        if let Err(e) = that
+                        if let Err(err) = that
                             .store
                             .upsert(&upl.id, &upl)
                             .await
                             .map_err(|e| ServiceError::from(&e))
                         {
                             tracing::error!(
-                                "could not save {upl:?} after generating thumbnail, {e}"
+                                "could not save {upl:?} after generating thumbnail {err}"
                             );
                         }
                     }

@@ -125,7 +125,7 @@ fn round(value: f64) -> String {
     let formatted = format!("{:.precision$}", value, precision = precision);
     formatted
 }
-fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
+pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     match CHROMIUM_TAB.get() {
         Some((_, tab)) => Ok(tab.clone()),
         None => {
@@ -145,6 +145,7 @@ fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                 .args(vec![
                     OsStr::new("--disable-web-security"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
+                    OsStr::new("--default-background-color=00000000"),
                     &user_data_dir,
                 ])
                 .build()

@@ -85,6 +85,23 @@ impl FileUploadV2 {
             .filter(|ct| ct.starts_with("image"))
             .is_some()
     }
+    pub fn is_supported_image(&self) -> bool {
+        self.content_type
+            .as_ref()
+            .map(|ct| {
+                matches!(
+                    ct.to_ascii_lowercase().as_str(),
+                    "image/png" | "image/jpeg" | "image/jpg" | "image/gif"
+                )
+            })
+            .unwrap_or(false)
+    }
+    pub fn is_pdf(&self) -> bool {
+        self.content_type
+            .as_ref()
+            .map(|ct| ct.eq_ignore_ascii_case("application/pdf"))
+            .unwrap_or(false)
+    }
 }
 
 impl Default for FileUploadV2 {
