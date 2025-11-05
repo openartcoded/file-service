@@ -55,6 +55,7 @@ tracing-subscriber = { version = "0.3.20", features = [
 utoipa = { version = "5.4.0", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
 uuid = { version = "1.18.1", features = ["v7"] }
+zip = "6.0.0"
 
 [profile.release]
 lto = "thin"
