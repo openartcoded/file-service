@@ -1,4 +1,4 @@
-FROM rust:1.90-alpine3.21 AS chef 
+FROM rust:1.91-alpine3.22 AS chef 
 
 RUN  apk add --no-cache openssl-dev curl build-base cmake pkgconfig musl-dev  openssl-libs-static perl 
 RUN apk add \
@@ -29,7 +29,7 @@ COPY . .
 
 RUN cargo build --release
 
-FROM alpine:3.21 AS runtime
+FROM alpine:3.22 AS runtime
 RUN apk add --no-cache tzdata
 RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
 
