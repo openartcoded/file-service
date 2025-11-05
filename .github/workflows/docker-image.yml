@@ -22,7 +22,7 @@ jobs:
               uses: docker/build-push-action@v5
               with:
                   push: true
-                  platforms: linux/amd64 #,linux/arm64
+                  platforms: linux/amd64,linux/arm64
                   tags: nbittich/file-service:latest
                   cache-from: type=registry,ref=nbittich/file-service:buildcache
                   cache-to: type=registry,ref=nbittich/file-service:buildcache,mode=max
