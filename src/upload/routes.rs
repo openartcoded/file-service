@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::env::var;
 use std::error::Error;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::path::Path;
 use std::time::Duration;
 
 use axum::Json;
@@ -16,7 +15,7 @@ use mongodb::bson::doc;
 use serde_json::json;
 use tokio_util::io::ReaderStream;
 
-use crate::common::constant::{DEFAULT_TENANT, FILE_SERVICE_COLLECTION_NAME, SHARE_DRIVE_PATH};
+use crate::common::constant::{DEFAULT_TENANT, FILE_SERVICE_COLLECTION_NAME};
 use crate::common::domain::ServiceError;
 use crate::common::util::{
     IdGenerator, OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection,
@@ -26,27 +25,14 @@ use crate::upload::domain::{DownloadBulkRequestUriParams, FindAllQueryParams};
 use crate::upload::service::{FileService, TMP_FS_PATH, write_field_to_temp_file};
 
 use super::domain::{
-    DownloadFileRequestUriParams, FileRouterState, FileUploadV2, ShareDrive,
-    UploadFileRequestUriParams,
+    DownloadFileRequestUriParams, FileRouterState, FileUploadV2, UploadFileRequestUriParams,
 };
 
 pub async fn make_state(client: StoreClient) -> Result<FileRouterState, Box<dyn Error>> {
-    let share_drive_path: String = std::env::var(SHARE_DRIVE_PATH).unwrap_or_else(|_| {
-        dirs::home_dir()
-            .unwrap_or_else(std::env::temp_dir)
-            .join(client.get_application_name())
-            .display()
-            .to_string()
-    });
-    tracing::info!("share path: {}", share_drive_path);
-    if !PathBuf::from_str(&share_drive_path)?.exists() {
-        tokio::fs::create_dir(&share_drive_path).await?;
-    }
     let collection_name: String =
         var(FILE_SERVICE_COLLECTION_NAME).unwrap_or_else(|_| String::from("fileUpload"));
     Ok(FileRouterState {
         client,
-        share_drive: ShareDrive(share_drive_path),
         collection: StoreCollection(collection_name),
     })
 }
@@ -56,7 +42,7 @@ pub async fn make_state(client: StoreClient) -> Result<FileRouterState, Box<dyn 
     params(DownloadFileRequestUriParams),
     responses(
         (status = 200, description = "Get upload metadata", body=FileUploadV2)
-    ),
+    )
     // security(("bearerAuth" = []))
 )]
 pub async fn metadata(
@@ -85,11 +71,7 @@ pub async fn metadata(
     // security(("bearerAuth" = []))
 )]
 pub async fn download_bulk(
-    State(FileRouterState {
-        client,
-        collection,
-        share_drive: ShareDrive(share_drive),
-    }): State<FileRouterState>,
+    State(FileRouterState { client, collection }): State<FileRouterState>,
     Json(DownloadBulkRequestUriParams { ids }): Json<DownloadBulkRequestUriParams>,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Download bulk route entered!");
@@ -103,10 +85,7 @@ pub async fn download_bulk(
     if files.is_empty() {
         return Ok(StatusCode::NO_CONTENT.into_response());
     }
-    let file_service = FileService {
-        share_drive_path: share_drive,
-        store: repository,
-    };
+    let file_service = FileService { store: repository };
     let (zip, zip_path) = file_service.download_bulk(&files).await?;
     let stream = ReaderStream::new(zip);
     let body = axum::body::Body::from_stream(stream);
@@ -140,11 +119,7 @@ pub async fn download_bulk(
     // security(("bearerAuth" = []))
 )]
 pub async fn download(
-    State(FileRouterState {
-        client,
-        collection,
-        share_drive: ShareDrive(share_drive),
-    }): State<FileRouterState>,
+    State(FileRouterState { client, collection }): State<FileRouterState>,
     Query(DownloadFileRequestUriParams { id }): Query<DownloadFileRequestUriParams>,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Download route entered!");
@@ -155,10 +130,7 @@ pub async fn download(
     {
         Some((repo, file)) => {
             tracing::debug!("file found in db! {:?}", file);
-            let file_service = FileService {
-                share_drive_path: share_drive,
-                store: repo,
-            };
+            let file_service = FileService { store: repo };
             tracing::debug!("downloading file...");
 
             let file_handle = file_service.download(&file).await?;
@@ -229,11 +201,7 @@ pub async fn find_all_uploads(
     // security(("bearerAuth" = []))
 )]
 pub async fn delete_by_id(
-    State(FileRouterState {
-        client,
-        collection,
-        share_drive: ShareDrive(share_drive),
-    }): State<FileRouterState>,
+    State(FileRouterState { client, collection }): State<FileRouterState>,
 
     axum::extract::Path(upl_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
@@ -241,7 +209,6 @@ pub async fn delete_by_id(
     let fs_repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: share_drive,
         store: fs_repository,
     };
     if let Err(e) = file_service.delete_by_id(&upl_id).await {
@@ -282,18 +249,13 @@ pub async fn ping() -> impl IntoResponse {
     // security(("bearerAuth" = []))
 )]
 pub async fn make_thumb(
-    State(FileRouterState {
-        client,
-        collection,
-        share_drive: ShareDrive(share_drive),
-    }): State<FileRouterState>,
+    State(FileRouterState { client, collection }): State<FileRouterState>,
 
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> axum::response::Result<axum::response::Response> {
     let fs_repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: share_drive,
         store: fs_repository.clone(),
     };
 
@@ -337,11 +299,7 @@ pub async fn make_thumb(
     // security(("bearerAuth" = []))
 )]
 pub async fn upload(
-    State(FileRouterState {
-        client,
-        collection,
-        share_drive: ShareDrive(share_drive),
-    }): State<FileRouterState>,
+    State(FileRouterState { client, collection }): State<FileRouterState>,
     Query(mut query): Query<UploadFileRequestUriParams>,
     mut multipart: Multipart,
 ) -> axum::response::Result<axum::response::Response> {
@@ -387,10 +345,7 @@ pub async fn upload(
     let mut uploads_resp = Vec::with_capacity(uploads.len());
     let repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
-    let file_service = FileService {
-        share_drive_path: share_drive,
-        store: repository,
-    };
+    let file_service = FileService { store: repository };
     for (_, (upl, temp_file_path)) in uploads {
         let upl = file_service
             .upload(

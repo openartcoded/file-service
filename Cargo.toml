@@ -8,6 +8,10 @@ async-trait = "0.1.89"
 async_zip = { version = "0.0.18", features = ["deflate", "tokio", "tokio-fs"] }
 axum = { version = "0.8.6", features = ["multipart"] }
 axum-extra = { version = "0.12.1", features = ["query", "typed-header"] }
+cached = { version = "0.56.0", features = [
+    "async",
+    "async_tokio_rt_multi_thread",
+] }
 base64 = "0.22.1"
 bson = { version = "3.0.0", features = ["serde"] }
 chrono = { version = "0.4.42", features = ["serde"] }

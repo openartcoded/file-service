@@ -125,13 +125,9 @@ pub struct DownloadBulkRequestUriParams {
     pub ids: Vec<String>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ShareDrive(pub String);
-
 #[derive(Clone)]
 pub struct FileRouterState {
     pub client: StoreClient,
-    pub share_drive: ShareDrive,
     pub collection: StoreCollection,
 }
 

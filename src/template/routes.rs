@@ -15,7 +15,7 @@ use tokio_util::io::ReaderStream;
 
 use crate::{
     common::{
-        constant::{DEFAULT_TENANT, TEMPL_SERVICE_COLLECTION_NAME},
+        constant::{DEFAULT_TENANT, SHARE_DRIVE_PATH_BUF, TEMPL_SERVICE_COLLECTION_NAME},
         domain::ServiceError,
         util::{OpenApiBinaryResponse, OpenApiDocUploadForm, QueryIds, StoreCollection},
     },
@@ -263,7 +263,7 @@ pub async fn upsert(
             };
 
             let (temp_path, len) =
-                write_field_to_temp_file(&mut field, &file_router_state.share_drive.0, &file_name)
+                write_field_to_temp_file(&mut field, SHARE_DRIVE_PATH_BUF.clone(), &file_name)
                     .await
                     .map_err(|s| ServiceError(s.to_string()))?;
 
@@ -297,10 +297,7 @@ pub async fn upsert(
                 &file_router_state.collection.0,
                 &DEFAULT_TENANT,
             );
-            let file_service = FileService {
-                share_drive_path: file_router_state.share_drive.0,
-                store: repository,
-            };
+            let file_service = FileService { store: repository };
             let fu = FileUploadV2::new(
                 &temp_path.display().to_string(),
                 &file_name,
@@ -357,7 +354,6 @@ pub async fn delete_templ_by_id(
     let fs_repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&fs.client, &fs.collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: fs.share_drive.0,
         store: fs_repository,
     };
     match repository.delete_by_id(&templ_id).await {

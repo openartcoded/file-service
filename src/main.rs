@@ -1,8 +1,4 @@
-use std::{
-    env::{args, var},
-    net::SocketAddr,
-    str::FromStr,
-};
+use std::{env::args, net::SocketAddr, str::FromStr};
 
 use axum::{
     Router,
@@ -11,7 +7,7 @@ use axum::{
     routing::{delete, get, post},
 };
 use common::{
-    constant::{BODY_SIZE_LIMIT, SERVICE_APPLICATION_NAME, SERVICE_HOST, SERVICE_PORT},
+    constant::{BODY_SIZE_LIMIT, SERVICE_HOST, SERVICE_PORT},
     util::{OpenApiBinaryResponse, setup_tracing},
 };
 use store::StoreClient;
@@ -104,14 +100,9 @@ fn get_templ_router() -> Router<AppState> {
 }
 
 fn get_file_router() -> Router<AppState> {
-    let body_size_limit = (var("BODY_SIZE_LIMIT")
-        .unwrap_or_else(|_| format!("{}", 1024 * 1024 * 50)))
-    .parse::<usize>()
-    .unwrap_or_else(|_| panic!("could not extract {}", BODY_SIZE_LIMIT));
-
     info!(
         "body_size_limit set to {:.2}mb",
-        ((body_size_limit as f64) / 1024. / 1024.)
+        ((*BODY_SIZE_LIMIT as f64) / 1024. / 1024.)
     );
 
     Router::new()
@@ -123,7 +114,7 @@ fn get_file_router() -> Router<AppState> {
         .route("/download-bulk", post(upload::routes::download_bulk))
         .route("/metadata", get(upload::routes::metadata))
         .route("/", post(upload::routes::upload))
-        .layer(DefaultBodyLimit::max(body_size_limit))
+        .layer(DefaultBodyLimit::max(*BODY_SIZE_LIMIT))
 }
 
 #[tokio::main]
@@ -137,11 +128,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("done.");
         return Ok(());
     }
-    let host = var(SERVICE_HOST).unwrap_or_else(|_| String::from("127.0.0.1"));
-    let port = var(SERVICE_PORT).unwrap_or_else(|_| String::from("80"));
-    let app_name = var(SERVICE_APPLICATION_NAME).unwrap_or_else(|_| String::from("file-service"));
-    let addr = SocketAddr::from_str(&format!("{host}:{port}"))?;
-    let client = StoreClient::new(app_name).await?;
+    let addr = SocketAddr::from_str(&format!("{}:{}", *SERVICE_HOST, *SERVICE_PORT))?;
+    let client = StoreClient::new().await?;
     tracing::info!("listening on {:?}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 

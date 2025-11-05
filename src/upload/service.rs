@@ -21,7 +21,7 @@ use tracing::debug;
 
 use crate::{
     common::{
-        constant::{THUMB_HEIGHT, THUMB_WIDTH},
+        constant::{SHARE_DRIVE_PATH_BUF, THUMB_HEIGHT, THUMB_WIDTH},
         domain::ServiceError,
         util::{IdGenerator, StoreCollection},
     },
@@ -33,7 +33,6 @@ use super::domain::FileUploadV2;
 
 #[derive(Clone)]
 pub struct FileService {
-    pub share_drive_path: String,
     pub store: StoreRepository<FileUploadV2>,
 }
 
@@ -49,6 +48,7 @@ pub static TMP_FS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     }
     temp_fs_folder
 });
+
 pub fn get_thumb_width() -> u32 {
     *THUMB_W.get_or_init(|| {
         var(THUMB_WIDTH)
@@ -100,7 +100,7 @@ impl FileService {
         }
     }
     pub fn get_physical_path(&self, internal_name: &str) -> PathBuf {
-        PathBuf::from(&self.share_drive_path).join(internal_name)
+        SHARE_DRIVE_PATH_BUF.join(internal_name)
     }
 
     pub async fn make_thumbnail(
@@ -181,8 +181,7 @@ impl FileService {
             ..Default::default()
         };
 
-        let path_buf =
-            PathBuf::from(&self.share_drive_path).join(self.get_filename_on_disk(&thumbnail));
+        let path_buf = SHARE_DRIVE_PATH_BUF.join(self.get_filename_on_disk(&thumbnail));
         tracing::debug!("save thumbnail... {path_buf:?}");
 
         tokio::fs::write(path_buf, thumb.as_bytes())
@@ -221,10 +220,8 @@ impl FileService {
                 upl.updated_date = Some(bson::DateTime::now());
                 // override file
                 tracing::info!("removing old file {}", old_internal_name);
-                if let Err(e) = tokio::fs::remove_file(
-                    PathBuf::from(&self.share_drive_path).join(&old_internal_name),
-                )
-                .await
+                if let Err(e) =
+                    tokio::fs::remove_file(SHARE_DRIVE_PATH_BUF.join(&old_internal_name)).await
                 {
                     tracing::error!("could not remove old file: {e}");
                 }
@@ -236,8 +233,7 @@ impl FileService {
 
                     tracing::info!("removing old thumbnail {}", old_thumbnail_id);
                     if let Err(e) = tokio::fs::remove_file(
-                        PathBuf::from(&self.share_drive_path)
-                            .join(format!("thumb-{old_internal_name}")),
+                        SHARE_DRIVE_PATH_BUF.join(format!("thumb-{old_internal_name}")),
                     )
                     .await
                     {
@@ -245,7 +241,7 @@ impl FileService {
                     }
                 }
             }
-            let final_file_path = PathBuf::from(&self.share_drive_path).join(&internal_name);
+            let final_file_path = SHARE_DRIVE_PATH_BUF.join(&internal_name);
             tokio::fs::rename(temp_file_path, &final_file_path)
                 .await
                 .map_err(|e| ServiceError::from(&e))?;
@@ -340,6 +336,7 @@ impl FileService {
         self.delete_by(get_document_filter_by_maybe_object_id(id))
             .await
     }
+
     pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
         tokio::fs::File::open(self.get_physical_path(&self.get_filename_on_disk(upl)))
             .await
