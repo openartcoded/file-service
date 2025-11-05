@@ -2,10 +2,31 @@ use std::{env::var, path::PathBuf, str::FromStr, sync::LazyLock};
 
 pub const FILE_SERVICE_COLLECTION_NAME: &str = "FILE_SERVICE_COLLECTION_NAME";
 pub const TEMPL_SERVICE_COLLECTION_NAME: &str = "TEMPL_SERVICE_COLLECTION_NAME";
-pub const THUMB_HEIGHT: &str = "THUMB_HEIGHT";
-pub const THUMB_WIDTH: &str = "THUMB_WIDTH";
 pub const TZ: &str = "TZ";
 
+pub static THUMB_W: LazyLock<u32> = LazyLock::new(|| {
+    var("THUMB_WIDTH")
+        .ok()
+        .and_then(|a| a.parse::<u32>().ok())
+        .unwrap_or(300)
+});
+
+pub static THUMB_H: LazyLock<u32> = LazyLock::new(|| {
+    var("THUMB_HEIGHT")
+        .ok()
+        .and_then(|a| a.parse::<u32>().ok())
+        .unwrap_or(300)
+});
+
+pub static TMP_FS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    let temp_fs_folder = var("TMP_FS_PATH")
+        .map(PathBuf::from)
+        .expect("missing TMP_FS_PATH variable");
+    if !temp_fs_folder.exists() {
+        std::fs::create_dir_all(&temp_fs_folder).expect("could not create tmpfs folder!");
+    }
+    temp_fs_folder
+});
 pub static DEFAULT_TENANT: LazyLock<String> =
     LazyLock::new(|| std::env::var("DEFAULT_TENANT").unwrap_or_else(|_| "artcoded_test".into()));
 
@@ -40,3 +61,8 @@ pub static BODY_SIZE_LIMIT: LazyLock<usize> = LazyLock::new(|| {
         .parse::<usize>()
         .expect("could not extract BODY_SIZE_LIMIT")
 });
+
+/*pub static CACHED_REDIS_CONNECTION_STRING: LazyLock<String> = LazyLock::new(|| {
+    std::env::var("CACHED_REDIS_CONNECTION_STRING")
+        .expect("CACHED_REDIS_CONNECTION_STRING must be set")
+});*/

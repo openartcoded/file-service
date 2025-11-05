@@ -48,3 +48,8 @@ npm install @openapitools/openapi-generator-cli -g
 ```
 openapi-generator-cli generate -i file-service/openapi.json -g java -o file-service-java-client
 ```
+
+### dev
+```
+MONGO_PORT=27018 SERVICE_PORT=8086 SHARE_DRIVE_PATH=/tmp/xx TMP_FS_PATH=/tmp/ouch RUST_LOG=info cargo run
+```

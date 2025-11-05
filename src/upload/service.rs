@@ -1,9 +1,7 @@
 use std::{
-    env::var,
     error::Error,
     io::{Cursor, Read, Seek, SeekFrom},
     path::PathBuf,
-    sync::{LazyLock, OnceLock},
 };
 
 use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
@@ -21,7 +19,7 @@ use tracing::debug;
 
 use crate::{
     common::{
-        constant::{SHARE_DRIVE_PATH_BUF, THUMB_HEIGHT, THUMB_WIDTH},
+        constant::{SHARE_DRIVE_PATH_BUF, THUMB_H, THUMB_W, TMP_FS_PATH},
         domain::ServiceError,
         util::{IdGenerator, StoreCollection},
     },
@@ -36,35 +34,9 @@ pub struct FileService {
     pub store: StoreRepository<FileUploadV2>,
 }
 
-static THUMB_W: OnceLock<u32> = OnceLock::new();
-static THUMB_H: OnceLock<u32> = OnceLock::new();
 
-pub static TMP_FS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    let temp_fs_folder = var("TMP_FS_PATH")
-        .map(PathBuf::from)
-        .expect("missing TMP_FS_PATH variable");
-    if !temp_fs_folder.exists() {
-        std::fs::create_dir_all(&temp_fs_folder).expect("could not create tmpfs folder!");
-    }
-    temp_fs_folder
-});
 
-pub fn get_thumb_width() -> u32 {
-    *THUMB_W.get_or_init(|| {
-        var(THUMB_WIDTH)
-            .ok()
-            .and_then(|a| a.parse::<u32>().ok())
-            .unwrap_or(300)
-    })
-}
-pub fn get_thumb_height() -> u32 {
-    *THUMB_H.get_or_init(|| {
-        var(THUMB_HEIGHT)
-            .ok()
-            .and_then(|a| a.parse::<u32>().ok())
-            .unwrap_or(300)
-    })
-}
+
 impl FileService {
     pub async fn get_file_upload(
         id: &str,
@@ -129,7 +101,7 @@ impl FileService {
                     .map_err(|e| ServiceError::from(&e))
                     .map(|im| (upl.content_type.clone(), im))
             }?;
-            let thumb = image.thumbnail(get_thumb_width(), get_thumb_height());
+            let thumb = image.thumbnail(*THUMB_W, *THUMB_H);
 
             let Some(ct) = ct else {
                 return Err(ServiceError("No Content type! Should not happen".into()));
