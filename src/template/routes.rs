@@ -298,8 +298,8 @@ pub async fn upsert(
                 &DEFAULT_TENANT,
             );
             let file_service = FileService {
-                share_drive_path: &file_router_state.share_drive.0,
-                store: &repository,
+                share_drive_path: file_router_state.share_drive.0,
+                store: repository,
             };
             let fu = FileUploadV2::new(
                 &temp_path.display().to_string(),
@@ -357,8 +357,8 @@ pub async fn delete_templ_by_id(
     let fs_repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&fs.client, &fs.collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: &fs.share_drive.0,
-        store: &fs_repository,
+        share_drive_path: fs.share_drive.0,
+        store: fs_repository,
     };
     match repository.delete_by_id(&templ_id).await {
         Ok(Some(templ)) => {

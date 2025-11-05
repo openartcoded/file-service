@@ -70,12 +70,15 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "file_bytes"
+                  "files"
                 ],
                 "properties": {
-                  "file_bytes": {
-                    "type": "string",
-                    "format": "binary",
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
                     "contentMediaType": "application/octet-stream"
                   }
                 }
@@ -366,12 +369,15 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "file_bytes"
+                  "files"
                 ],
                 "properties": {
-                  "file_bytes": {
-                    "type": "string",
-                    "format": "binary",
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
                     "contentMediaType": "application/octet-stream"
                   }
                 }
@@ -413,6 +419,41 @@
         "responses": {
           "200": {
             "description": "Download file",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "contentMediaType": "*/*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/upload/download-bulk": {
+      "get": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "download_bulk",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Download multiple files as a zip",
             "content": {
               "*/*": {
                 "schema": {
@@ -575,6 +616,20 @@
           "PEPPOL",
           "C_V"
         ]
+      },
+      "DownloadBulkRequestUriParams": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "DownloadFileRequestUriParams": {
         "type": "object",

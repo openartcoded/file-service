@@ -49,8 +49,8 @@ pub async fn render<T: Serialize + Debug>(
     {
         Some((repo, file)) => {
             let file_service = FileService {
-                share_drive_path: &file_router_state.share_drive.0,
-                store: &repo,
+                share_drive_path: file_router_state.share_drive.0.clone(),
+                store: repo,
             };
             let templ_bytes = file_service.download_bytes(&file).await?;
 

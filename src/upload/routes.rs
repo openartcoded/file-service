@@ -3,6 +3,7 @@ use std::env::var;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::time::Duration;
 
 use axum::Json;
 use axum::extract::{Multipart, Query, State};
@@ -21,7 +22,7 @@ use crate::common::util::{
     IdGenerator, OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection,
 };
 use crate::store::{Repository, StoreClient, StoreRepository};
-use crate::upload::domain::FindAllQueryParams;
+use crate::upload::domain::{DownloadBulkRequestUriParams, FindAllQueryParams};
 use crate::upload::service::{FileService, TMP_FS_PATH, write_field_to_temp_file};
 
 use super::domain::{
@@ -75,6 +76,61 @@ pub async fn metadata(
 }
 
 #[utoipa::path(
+    post,
+    path = "/api/v1/upload/download-bulk",
+    request_body=DownloadBulkRequestUriParams,
+    responses(
+        (status = 200, description = "Download multiple files as a zip",content_type = "*/*",body=inline(OpenApiBinaryResponse))
+    ),
+    // security(("bearerAuth" = []))
+)]
+pub async fn download_bulk(
+    State(FileRouterState {
+        client,
+        collection,
+        share_drive: ShareDrive(share_drive),
+    }): State<FileRouterState>,
+    Json(DownloadBulkRequestUriParams { ids }): Json<DownloadBulkRequestUriParams>,
+) -> axum::response::Result<axum::response::Response> {
+    tracing::debug!("Download bulk route entered!");
+
+    let repository: StoreRepository<FileUploadV2> =
+        StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
+    let files = repository
+        .find_by_ids(ids)
+        .await
+        .map_err(|e| ServiceError(e.to_string()))?;
+    if files.is_empty() {
+        return Ok(StatusCode::NO_CONTENT.into_response());
+    }
+    let file_service = FileService {
+        share_drive_path: share_drive,
+        store: repository,
+    };
+    let (zip, zip_path) = file_service.download_bulk(&files).await?;
+    let stream = ReaderStream::new(zip);
+    let body = axum::body::Body::from_stream(stream);
+
+    let content_header = (
+        header::CONTENT_DISPOSITION,
+        format!(r#"attachment; filename="{}.zip""#, IdGenerator.get()),
+    );
+
+    let content_type = (CONTENT_TYPE, "application/zip".to_string());
+
+    let headers = AppendHeaders([content_type, content_header]);
+
+    tokio::spawn(async move {
+        tracing::info!("trying to delete zip after downloaded...");
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        if let Err(e) = tokio::fs::remove_file(&zip_path).await {
+            tracing::error!("could not delete {zip_path:?}:  zip file {e}");
+        }
+    });
+    Ok((headers, body).into_response())
+}
+
+#[utoipa::path(
     get,
     path = "/api/v1/upload/download",
     params(DownloadFileRequestUriParams),
@@ -100,8 +156,8 @@ pub async fn download(
         Some((repo, file)) => {
             tracing::debug!("file found in db! {:?}", file);
             let file_service = FileService {
-                share_drive_path: &share_drive,
-                store: &repo,
+                share_drive_path: share_drive,
+                store: repo,
             };
             tracing::debug!("downloading file...");
 
@@ -185,8 +241,8 @@ pub async fn delete_by_id(
     let fs_repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: &share_drive,
-        store: &fs_repository,
+        share_drive_path: share_drive,
+        store: fs_repository,
     };
     if let Err(e) = file_service.delete_by_id(&upl_id).await {
         tracing::error!("could not delete files {e:?}");
@@ -237,8 +293,8 @@ pub async fn make_thumb(
     let fs_repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: &share_drive,
-        store: &fs_repository,
+        share_drive_path: share_drive,
+        store: fs_repository.clone(),
     };
 
     let upl = fs_repository
@@ -332,8 +388,8 @@ pub async fn upload(
     let repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
     let file_service = FileService {
-        share_drive_path: &share_drive,
-        store: &repository,
+        share_drive_path: share_drive,
+        store: repository,
     };
     for (_, (upl, temp_file_path)) in uploads {
         let upl = file_service

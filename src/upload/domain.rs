@@ -27,7 +27,7 @@ where
     }
 }
 
-#[derive(Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Eq, Clone, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUploadV2 {
     #[serde(rename = "_id", deserialize_with = "object_id_to_string")]
@@ -119,6 +119,10 @@ pub struct UploadFileRequestUriParams {
 #[derive(Debug, Serialize, Deserialize, IntoParams, ToSchema)]
 pub struct DownloadFileRequestUriParams {
     pub id: String,
+}
+#[derive(Debug, Serialize, Deserialize, IntoParams, ToSchema)]
+pub struct DownloadBulkRequestUriParams {
+    pub ids: Vec<String>,
 }
 
 #[derive(Clone, Debug)]

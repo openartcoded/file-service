@@ -25,7 +25,7 @@ use upload::domain::{
 use utoipa::{Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::template::render;
+use crate::{template::render, upload::domain::DownloadBulkRequestUriParams};
 
 mod common;
 mod store;
@@ -55,12 +55,13 @@ impl FromRef<AppState> for TemplRouterState {
 #[derive(OpenApi)]
 #[openapi(
     info(description = "File Api V1", title="FileApi",version="0.4", license(identifier="MIT")),
-    components(schemas(TemplateType,OpenApiBinaryResponse, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadFileRequestUriParams, Context,TemplateUpsert)),
+    components(schemas(TemplateType,OpenApiBinaryResponse, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadBulkRequestUriParams,DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
         upload::routes::make_thumb,
         upload::routes::ping,
         upload::routes::find_all_uploads,
+        upload::routes::download_bulk,
         upload::routes::download,
         upload::routes::upload,
         upload::routes::delete_by_id,
@@ -119,6 +120,7 @@ fn get_file_router() -> Router<AppState> {
         .route("/{upl_id}", delete(upload::routes::delete_by_id))
         .route("/{id}/make-thumb", post(upload::routes::make_thumb))
         .route("/download", get(upload::routes::download))
+        .route("/download-bulk", post(upload::routes::download_bulk))
         .route("/metadata", get(upload::routes::metadata))
         .route("/", post(upload::routes::upload))
         .layer(DefaultBodyLimit::max(body_size_limit))

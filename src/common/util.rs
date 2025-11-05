@@ -15,8 +15,8 @@ pub struct OpenApiBinaryResponse(String);
 #[derive(utoipa::ToSchema)]
 #[allow(unused)]
 pub struct OpenApiDocUploadForm {
-    #[schema(content_media_type = "application/octet-stream", format = "binary")]
-    pub file_bytes: String,
+    #[schema(content_media_type = "application/octet-stream", format = "binary",  value_type = Vec<String>)]
+    pub files: Vec<String>,
 }
 
 pub fn setup_tracing() -> Result<(), Box<dyn Error>> {

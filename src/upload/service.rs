@@ -21,7 +21,7 @@ use tracing::debug;
 
 use crate::{
     common::{
-        constant::{DEFAULT_TENANT, THUMB_HEIGHT, THUMB_WIDTH},
+        constant::{THUMB_HEIGHT, THUMB_WIDTH},
         domain::ServiceError,
         util::{IdGenerator, StoreCollection},
     },
@@ -31,9 +31,10 @@ use crate::{
 
 use super::domain::FileUploadV2;
 
-pub struct FileService<'a> {
-    pub share_drive_path: &'a str,
-    pub store: &'a StoreRepository<FileUploadV2>,
+#[derive(Clone)]
+pub struct FileService {
+    pub share_drive_path: String,
+    pub store: StoreRepository<FileUploadV2>,
 }
 
 static THUMB_W: OnceLock<u32> = OnceLock::new();
@@ -64,7 +65,7 @@ pub fn get_thumb_height() -> u32 {
             .unwrap_or(300)
     })
 }
-impl FileService<'_> {
+impl FileService {
     pub async fn get_file_upload(
         id: &str,
         tenant: Option<String>,
@@ -88,12 +89,7 @@ impl FileService<'_> {
             }
         }
 
-        let public_repository: StoreRepository<FileUploadV2> =
-            StoreRepository::get_repository(client, &collection.0, &DEFAULT_TENANT);
-
-        if let Some(fu) = get_upload(&public_repository, id).await {
-            Some((public_repository, fu))
-        } else if let Some(tenant) = tenant {
+        if let Some(tenant) = tenant {
             let private_repository: StoreRepository<FileUploadV2> =
                 StoreRepository::get_repository(client, &collection.0, &tenant);
             get_upload(&private_repository, id)
@@ -104,7 +100,7 @@ impl FileService<'_> {
         }
     }
     pub fn get_physical_path(&self, internal_name: &str) -> PathBuf {
-        PathBuf::from(self.share_drive_path).join(internal_name)
+        PathBuf::from(&self.share_drive_path).join(internal_name)
     }
 
     pub async fn make_thumbnail(
@@ -206,7 +202,7 @@ impl FileService<'_> {
         temp_file_path: Option<&PathBuf>,
         without_thumbnail: bool,
     ) -> Result<FileUploadV2, ServiceError> {
-        if let Some(temp_file_path) = temp_file_path {
+        let final_file = if let Some(temp_file_path) = temp_file_path {
             let upload = self
                 .store
                 .find_by_id(&upl.id)
@@ -226,7 +222,7 @@ impl FileService<'_> {
                 // override file
                 tracing::info!("removing old file {}", old_internal_name);
                 if let Err(e) = tokio::fs::remove_file(
-                    PathBuf::from(self.share_drive_path).join(&old_internal_name),
+                    PathBuf::from(&self.share_drive_path).join(&old_internal_name),
                 )
                 .await
                 {
@@ -249,26 +245,50 @@ impl FileService<'_> {
                     }
                 }
             }
-
-            if !without_thumbnail {
-                upl.thumbnail_id = self
-                    .make_thumbnail(&upl, &internal_name, temp_file_path)
-                    .await?;
-            }
-
-            tokio::fs::rename(
-                temp_file_path,
-                PathBuf::from(&self.share_drive_path).join(&internal_name),
-            )
-            .await
-            .map_err(|e| ServiceError::from(&e))?;
-            upl.name = Some(internal_name);
-        }
+            let final_file_path = PathBuf::from(&self.share_drive_path).join(&internal_name);
+            tokio::fs::rename(temp_file_path, &final_file_path)
+                .await
+                .map_err(|e| ServiceError::from(&e))?;
+            upl.name = Some(internal_name.clone());
+            Some((internal_name, final_file_path))
+        } else {
+            None
+        };
 
         self.store
             .upsert(&upl.id, &upl)
             .await
             .map_err(|e| ServiceError::from(&e))?;
+
+        if let Some((internal_name, final_file_path)) = final_file
+            && !without_thumbnail
+        {
+            let mut upl = upl.clone();
+            let that = self.clone();
+            // make thumb generation asynchronous
+            tokio::spawn(async move {
+                match that
+                    .make_thumbnail(&upl, &internal_name, &final_file_path)
+                    .await
+                {
+                    Err(e) => tracing::error!("could not generate thumbnail for upl {upl:?}, {e}"),
+                    Ok(o) => {
+                        upl.thumbnail_id = o;
+                        if let Err(e) = that
+                            .store
+                            .upsert(&upl.id, &upl)
+                            .await
+                            .map_err(|e| ServiceError::from(&e))
+                        {
+                            tracing::error!(
+                                "could not save {upl:?} after generating thumbnail, {e}"
+                            );
+                        }
+                    }
+                }
+            });
+        }
+
         Ok(upl)
     }
     pub async fn delete_by(&self, query: Document) -> Result<(), ServiceError> {
@@ -325,7 +345,10 @@ impl FileService<'_> {
             .await
             .map_err(|e| ServiceError::from(&e))
     }
-    pub async fn download_bulk(&self, upls: &[FileUploadV2]) -> Result<File, ServiceError> {
+    pub async fn download_bulk(
+        &self,
+        upls: &[FileUploadV2],
+    ) -> Result<(File, PathBuf), ServiceError> {
         use tokio::io::AsyncReadExt;
         let zip_path = TMP_FS_PATH.join(format!("{}.zip", IdGenerator.get()));
         let mut zip = tokio::fs::File::create(&zip_path)
@@ -355,7 +378,7 @@ impl FileService<'_> {
             .await
             .map_err(|e| ServiceError(e.to_string()))?;
 
-        Ok(file)
+        Ok((file, zip_path))
     }
 
     pub async fn download_bytes(&self, upl: &FileUploadV2) -> Result<Vec<u8>, ServiceError> {
