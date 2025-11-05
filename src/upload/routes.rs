@@ -17,10 +17,12 @@ use tokio_util::io::ReaderStream;
 
 use crate::common::constant::{DEFAULT_TENANT, FILE_SERVICE_COLLECTION_NAME, SHARE_DRIVE_PATH};
 use crate::common::domain::ServiceError;
-use crate::common::util::{OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection};
+use crate::common::util::{
+    IdGenerator, OpenApiBinaryResponse, OpenApiDocUploadForm, StoreCollection,
+};
 use crate::store::{Repository, StoreClient, StoreRepository};
 use crate::upload::domain::FindAllQueryParams;
-use crate::upload::service::{FileService, write_field_to_temp_file};
+use crate::upload::service::{FileService, TMP_FS_PATH, write_field_to_temp_file};
 
 use super::domain::{
     DownloadFileRequestUriParams, FileRouterState, FileUploadV2, ShareDrive,
@@ -289,6 +291,7 @@ pub async fn upload(
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Upload route entered!");
 
+    let tmp_fs_folder = TMP_FS_PATH.join(IdGenerator.get());
     let mut uploads = HashMap::new();
 
     while let Some(mut field) = multipart.next_field().await? {
@@ -313,9 +316,10 @@ pub async fn upload(
             name: Some(file_name.to_string()),
             ..Default::default()
         };
-        let (temp_file_path, len) = write_field_to_temp_file(&mut field, &share_drive, &file_name)
-            .await
-            .map_err(|e| ServiceError(e.to_string()))?;
+        let (temp_file_path, len) =
+            write_field_to_temp_file(&mut field, &tmp_fs_folder, &file_name)
+                .await
+                .map_err(|e| ServiceError(e.to_string()))?;
 
         file_upload.size = len;
 
@@ -341,6 +345,12 @@ pub async fn upload(
             .await?;
         uploads_resp.push(upl);
     }
+    tokio::spawn(async move {
+        tracing::info!("deleting temp upload folder");
+        if let Err(e) = tokio::fs::remove_dir_all(&tmp_fs_folder).await {
+            tracing::error!("could not delete temp folder from tmp fs {e}");
+        }
+    });
     let json_resp = if uploads_resp.len() == 1 {
         (StatusCode::OK, Json(uploads_resp.remove(0))).into_response()
     } else {

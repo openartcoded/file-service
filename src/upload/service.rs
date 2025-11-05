@@ -3,9 +3,10 @@ use std::{
     error::Error,
     io::{Cursor, Read, Seek, SeekFrom},
     path::PathBuf,
-    sync::OnceLock,
+    sync::{LazyLock, OnceLock},
 };
 
+use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
 use axum::extract::multipart::Field;
 use futures::TryStreamExt;
 use image::{EncodableLayout, ImageFormat};
@@ -22,7 +23,7 @@ use crate::{
     common::{
         constant::{DEFAULT_TENANT, THUMB_HEIGHT, THUMB_WIDTH},
         domain::ServiceError,
-        util::StoreCollection,
+        util::{IdGenerator, StoreCollection},
     },
     store::{Repository, StoreClient, StoreRepository, get_document_filter_by_maybe_object_id},
     upload::soffice::{ConvertType, convert_to},
@@ -38,6 +39,15 @@ pub struct FileService<'a> {
 static THUMB_W: OnceLock<u32> = OnceLock::new();
 static THUMB_H: OnceLock<u32> = OnceLock::new();
 
+pub static TMP_FS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    let temp_fs_folder = var("TMP_FS_PATH")
+        .map(PathBuf::from)
+        .expect("missing TMP_FS_PATH variable");
+    if !temp_fs_folder.exists() {
+        std::fs::create_dir_all(&temp_fs_folder).expect("could not create tmpfs folder!");
+    }
+    temp_fs_folder
+});
 pub fn get_thumb_width() -> u32 {
     *THUMB_W.get_or_init(|| {
         var(THUMB_WIDTH)
@@ -315,6 +325,39 @@ impl FileService<'_> {
             .await
             .map_err(|e| ServiceError::from(&e))
     }
+    pub async fn download_bulk(&self, upls: &[FileUploadV2]) -> Result<File, ServiceError> {
+        use tokio::io::AsyncReadExt;
+        let zip_path = TMP_FS_PATH.join(format!("{}.zip", IdGenerator.get()));
+        let mut zip = tokio::fs::File::create(&zip_path)
+            .await
+            .map_err(|e| ServiceError(e.to_string()))?;
+        let mut writer = ZipFileWriter::with_tokio(&mut zip);
+        for upl in upls {
+            let mut file = self.download(upl).await?;
+            let mut data = Vec::new();
+            file.read_to_end(&mut data)
+                .await
+                .map_err(|e| ServiceError(e.to_string()))?;
+            let builder = ZipEntryBuilder::new(
+                upl.original_filename.to_string().into(),
+                Compression::Deflate,
+            );
+            writer
+                .write_entry_whole(builder, &data)
+                .await
+                .map_err(|e| ServiceError(e.to_string()))?;
+        }
+        writer
+            .close()
+            .await
+            .map_err(|e| ServiceError(e.to_string()))?;
+        let file = tokio::fs::File::open(&zip_path)
+            .await
+            .map_err(|e| ServiceError(e.to_string()))?;
+
+        Ok(file)
+    }
+
     pub async fn download_bytes(&self, upl: &FileUploadV2) -> Result<Vec<u8>, ServiceError> {
         use io::AsyncReadExt;
         let mut download = self.download(upl).await?;
@@ -331,9 +374,7 @@ pub async fn write_field_to_temp_file(
     volume: impl Into<PathBuf>,
     file_name: &str,
 ) -> Result<(PathBuf, u64), Box<dyn Error>> {
-    let volume = volume.into();
-    let temp_volume = volume.join("tmp"); // necessary to
-    // then move the file in the same volume
+    let temp_volume = volume.into();
     tracing::debug!("temp_volume: - {temp_volume:?}");
     if !temp_volume.exists() {
         tokio::fs::create_dir(&temp_volume).await?;

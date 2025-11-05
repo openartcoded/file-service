@@ -15,6 +15,7 @@ services:
 | Environment Variable          | Description                               | Default Value                             |
 | ----------------------------- | ----------------------------------------- | ----------------------------------------- |
 | BODY_SIZE_LIMIT               | Body size limit for requests (in bytes)   | 1048576 (1mb)                             |
+| TMP_FS_PATH                   | tmp fs file path (required!)              | None                                      |
 | SERVICE_HOST                  | Hostname of the service                   | 127.0.0.1                                 |
 | DEFAULT_TENANT                | Default database name                     | artcoded_test                             |
 | SERVICE_PORT                  | Port for the service                      | 80                                        |
