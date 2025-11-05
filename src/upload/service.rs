@@ -34,9 +34,6 @@ pub struct FileService {
     pub store: StoreRepository<FileUploadV2>,
 }
 
-
-
-
 impl FileService {
     pub async fn get_file_upload(
         id: &str,

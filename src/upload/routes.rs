@@ -22,7 +22,7 @@ use crate::common::util::{
 };
 use crate::store::{Repository, StoreClient, StoreRepository};
 use crate::upload::domain::{DownloadBulkRequestUriParams, FindAllQueryParams};
-use crate::upload::service::{FileService,  write_field_to_temp_file};
+use crate::upload::service::{FileService, write_field_to_temp_file};
 
 use super::domain::{
     DownloadFileRequestUriParams, FileRouterState, FileUploadV2, UploadFileRequestUriParams,
@@ -35,7 +35,6 @@ pub async fn make_state(client: StoreClient) -> Result<FileRouterState, Box<dyn 
         collection: StoreCollection(collection_name),
     })
 }
-
 
 #[utoipa::path(
     get,
@@ -72,7 +71,9 @@ pub async fn metadata(
     // security(("bearerAuth" = []))
 )]
 pub async fn download_bulk(
-    State(FileRouterState { client, collection }): State<FileRouterState>,
+    State(FileRouterState {
+        client, collection, ..
+    }): State<FileRouterState>,
     Json(DownloadBulkRequestUriParams { ids }): Json<DownloadBulkRequestUriParams>,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Download bulk route entered!");
@@ -124,8 +125,8 @@ pub async fn download(
     Query(DownloadFileRequestUriParams { id }): Query<DownloadFileRequestUriParams>,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Download route entered!");
-
     tracing::debug!("trying to fetch document with id {id}");
+
     match FileService::get_file_upload(&id, Some(DEFAULT_TENANT.to_string()), &client, &collection)
         .await
     {
@@ -250,7 +251,9 @@ pub async fn ping() -> impl IntoResponse {
     // security(("bearerAuth" = []))
 )]
 pub async fn make_thumb(
-    State(FileRouterState { client, collection }): State<FileRouterState>,
+    State(FileRouterState {
+        client, collection, ..
+    }): State<FileRouterState>,
 
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> axum::response::Result<axum::response::Response> {
