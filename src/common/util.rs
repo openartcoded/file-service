@@ -44,12 +44,11 @@ pub fn setup_tracing() -> Result<(), Box<dyn Error>> {
 
 #[derive(Debug, Clone)]
 pub struct StoreCollection(pub String);
-
 pub struct IdGenerator;
 
 impl IdGenerator {
     pub fn get(&self) -> String {
-        uuid::Uuid::new_v4().to_string()
+        uuid::Uuid::now_v7().to_string()
     }
 }
 

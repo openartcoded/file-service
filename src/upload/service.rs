@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     io::{Cursor, Read, Seek, SeekFrom},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
@@ -81,7 +81,7 @@ impl FileService {
         temp_file_path: &PathBuf,
     ) -> Result<Option<String>, ServiceError> {
         let (extension, thumb) = {
-            async fn chrome_proc(temp_file_path: &PathBuf) -> Result<Vec<u8>, ServiceError> {
+            async fn chrome_proc(temp_file_path: &Path) -> Result<Vec<u8>, ServiceError> {
                 // first try with chromium as it seems faster
                 let tab = get_chromium_tab().map_err(|e| ServiceError(e.to_string()))?;
                 let file_url = format!("file://{}", temp_file_path.display());
@@ -93,7 +93,7 @@ impl FileService {
                     .capture_screenshot(Page::CaptureScreenshotFormatOption::Png, None, None, true)
                     .map_err(|e| ServiceError(e.to_string()))?;
                 Ok(png_data) as Result<Vec<u8>, ServiceError>
-            };
+            }
 
             let (ct, image) = if upl.is_supported_image() {
                 let bytes = tokio::fs::read(temp_file_path)

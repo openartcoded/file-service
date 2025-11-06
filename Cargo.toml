@@ -41,12 +41,12 @@ time = { version = "0.3.44", features = [
 ] }
 tokio = { version = "1.48.0", features = ["macros", "sync", "fs", "time"] }
 tokio-util = "0.7.17"
-tower-http = { version = "0.6.6", features = [
-    "cors",
-    "limit",
-    "trace",
-    "redirect",
-] }
+#tower-http = { version = "0.6.6", features = [
+#    "cors",
+#    "limit",
+#    "trace",
+#    "redirect",
+#] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = [
     "env-filter",

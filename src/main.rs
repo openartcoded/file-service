@@ -12,7 +12,6 @@ use common::{
 };
 use store::StoreClient;
 use template::domain::{Context, TemplRouterState, TemplateType, TemplateUpsert, TemplateV2};
-use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use upload::domain::{
     DownloadFileRequestUriParams, FileRouterState, FileUploadV2, FindAllQueryParams,
@@ -136,10 +135,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .nest("/api/v1/upload", get_file_router())
         .nest("/api/v1/template", get_templ_router())
+        /* add tower-http if you need this
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
-        )
+        )*/
         .with_state(AppState {
             file_state: upload::routes::make_state(client.clone()).await?,
             templ_state: template::routes::make_state(client),

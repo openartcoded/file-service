@@ -96,6 +96,7 @@ impl FileUploadV2 {
             })
             .unwrap_or(false)
     }
+    #[allow(unused)]
     pub fn is_pdf(&self) -> bool {
         self.content_type
             .as_ref()
