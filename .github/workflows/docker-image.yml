@@ -6,7 +6,6 @@ on:
 
 jobs:
   docker:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
@@ -14,6 +13,7 @@ jobs:
             runner: ubuntu-latest
           - platform: linux/arm64
             runner: [self-hosted, linux, arm64]
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
