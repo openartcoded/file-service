@@ -18,7 +18,12 @@ pub struct OpenApiDocUploadForm {
     #[schema(content_media_type = "application/octet-stream", format = "binary",  value_type = Vec<String>)]
     pub files: Vec<String>,
 }
-
+#[derive(utoipa::ToSchema)]
+#[allow(unused)]
+pub struct OpenApiDocUploadFormSimpleFile {
+    #[schema(content_media_type = "application/octet-stream", format = "binary",  value_type = String)]
+    pub files: String,
+}
 pub fn setup_tracing() -> Result<(), Box<dyn Error>> {
     let offset_hours = {
         let now = Local::now();

@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.8"
+    "version": "0.9"
   },
   "paths": {
     "/api/v1/template": {
@@ -314,7 +314,7 @@
     "/api/v1/upload": {
       "post": {
         "tags": [
-          "upload::routes"
+          "upload::routes::streamupload"
         ],
         "operationId": "upload",
         "parameters": [
@@ -395,7 +395,7 @@
     "/api/v1/upload/download": {
       "get": {
         "tags": [
-          "upload::routes"
+          "upload::routes::fetch-by-id"
         ],
         "operationId": "download",
         "parameters": [
@@ -427,9 +427,9 @@
     "/api/v1/upload/download-bulk": {
       "post": {
         "tags": [
-          "upload::routes"
+          "upload::routes::download-bulk"
         ],
-        "operationId": "download_bulk",
+        "operationId": "download-bulk",
         "requestBody": {
           "content": {
             "application/json": {
@@ -459,9 +459,9 @@
     "/api/v1/upload/find-all": {
       "get": {
         "tags": [
-          "upload::routes"
+          "upload::routes::fetch-all"
         ],
-        "operationId": "find_all_uploads",
+        "operationId": "find-all",
         "parameters": [
           {
             "name": "correlationId",
@@ -495,7 +495,7 @@
     "/api/v1/upload/metadata": {
       "get": {
         "tags": [
-          "upload::routes"
+          "upload::routes::metadata"
         ],
         "operationId": "metadata",
         "parameters": [
@@ -525,7 +525,7 @@
     "/api/v1/upload/ping": {
       "get": {
         "tags": [
-          "upload::routes"
+          "upload::routes::ping"
         ],
         "operationId": "ping",
         "responses": {
@@ -538,9 +538,9 @@
     "/api/v1/upload/{id}": {
       "delete": {
         "tags": [
-          "upload::routes"
+          "upload::routes::upl-delete"
         ],
-        "operationId": "delete_by_id",
+        "operationId": "delete",
         "parameters": [
           {
             "name": "id",
@@ -561,9 +561,9 @@
     "/api/v1/upload/{id}/make-thumb": {
       "post": {
         "tags": [
-          "upload::routes"
+          "upload::routes::make-thumb"
         ],
-        "operationId": "make_thumb",
+        "operationId": "make-thumb",
         "parameters": [
           {
             "name": "id",
@@ -598,43 +598,10 @@
     "/api/v1/upload/{id}/update": {
       "post": {
         "tags": [
-          "upload::routes"
+          "upload::routes::upload-update"
         ],
         "operationId": "upload_update",
         "parameters": [
-          {
-            "name": "correlation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          {
-            "name": "is_public",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
-            }
-          },
-          {
-            "name": "without_thumbnail",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
-            }
-          },
           {
             "name": "id",
             "in": "path",
@@ -654,11 +621,8 @@
                 ],
                 "properties": {
                   "files": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "binary"
-                    },
+                    "type": "string",
+                    "format": "binary",
                     "contentMediaType": "application/octet-stream"
                   }
                 }
@@ -818,6 +782,19 @@
         "type": "string",
         "format": "binary",
         "contentMediaType": "*/*"
+      },
+      "OpenApiDocUploadFormSimpleFile": {
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "string",
+            "format": "binary",
+            "contentMediaType": "application/octet-stream"
+          }
+        }
       },
       "RenderRequest": {
         "type": "object",
