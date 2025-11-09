@@ -29,6 +29,7 @@ RUN rm -rf src
 ## BUILD LAYER
 FROM cache AS build
 WORKDIR /app
+ENV RUSTFLAGS="-C link-args=-ltcmalloc"
 RUN rm -rf ./src
 COPY ./src ./src
 RUN cargo build --release

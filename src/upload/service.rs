@@ -7,7 +7,7 @@ use std::{
 use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
 use axum::extract::multipart::Field;
 use futures::TryStreamExt;
-use headless_chrome::protocol::cdp::Page;
+use headless_chrome::protocol::cdp::Page::{self, Viewport};
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
 use mongodb::bson::{Document, doc};
@@ -30,6 +30,8 @@ use crate::{
 };
 
 use super::domain::FileUploadV2;
+
+static GET_VIEW_PORT_JS_SCRIPT: &str = include_str!("get_viewport.js");
 
 #[derive(Clone)]
 pub struct FileService {
@@ -89,10 +91,33 @@ impl FileService {
                     .map_err(|e| ServiceError(e.to_string()))?;
                 tab.wait_until_navigated()
                     .map_err(|e| ServiceError(e.to_string()))?;
+                let viewport = tab
+                    .evaluate(GET_VIEW_PORT_JS_SCRIPT, true)
+                    .map_err(|e| ServiceError(e.to_string()))?
+                    .value
+                    .ok_or_else(|| ServiceError("Failed to get viewport dimensions".to_string()))?;
+
+                // Parse viewport dimensions
+                let clip = serde_json::from_value::<Viewport>(viewport)
+                    .map_err(|e| ServiceError(format!("Failed to parse viewport: {}", e)))?;
+
+                // Capture screenshot with the specific viewport
                 let png_data = tab
-                    .capture_screenshot(Page::CaptureScreenshotFormatOption::Png, None, None, true)
+                    .capture_screenshot(
+                        Page::CaptureScreenshotFormatOption::Png,
+                        None,
+                        Some(Page::Viewport {
+                            x: clip.x,
+                            y: clip.y,
+                            width: clip.width,
+                            height: clip.height,
+                            scale: 1.0,
+                        }),
+                        true,
+                    )
                     .map_err(|e| ServiceError(e.to_string()))?;
-                Ok(png_data) as Result<Vec<u8>, ServiceError>
+
+                Ok(png_data)
             }
 
             let (ct, image) = if upl.is_supported_image() {
@@ -104,25 +129,29 @@ impl FileService {
                     .map_err(|e| ServiceError::from(&e))
                     .map(|im| (upl.content_type.clone(), im))
             } else {
-                match convert_to(temp_file_path, ConvertType::Png)
-                    .await
-                    .map_err(|e| ServiceError(e.to_string()))
-                {
-                    Ok(bytes) => image::load_from_memory(&bytes)
-                        .map_err(|e| ServiceError::from(&e))
-                        .map(|im| (Some(IMAGE_PNG.to_string()), im)),
+                match chrome_proc(temp_file_path).await.map(|bytes| {
+                    image::load_from_memory(&bytes)
+                        .map_err(|e| ServiceError(e.to_string()))
+                        .map(|im| (Some(IMAGE_PNG.to_string()), im))
+                }) {
+                    Ok(img) => img,
                     Err(e) => {
-                        tracing::error!(
-                            "error converting file {}: {}, try with chromium...",
-                            internal_name,
-                            e
-                        );
-                        match chrome_proc(temp_file_path).await {
-                            Ok(bytes) => image::load_from_memory(&bytes)
-                                .map_err(|e| ServiceError(e.to_string()))
-                                .map(|im| (Some(IMAGE_PNG.to_string()), im)),
+                        tracing::error!("error converting file {}: {} ", internal_name, e);
+                        match convert_to(temp_file_path, ConvertType::Png)
+                            .await
+                            .map_err(|e| ServiceError(e.to_string()))
+                            .map(|bytes| {
+                                image::load_from_memory(&bytes)
+                                    .map_err(|e| ServiceError::from(&e))
+                                    .map(|im| (Some(IMAGE_PNG.to_string()), im))
+                            }) {
+                            Ok(img) => img,
                             Err(e) => {
-                                tracing::error!("error converting file {}: {} ", internal_name, e);
+                                tracing::error!(
+                                    "error converting file {}: {}, try with chromium...",
+                                    internal_name,
+                                    e
+                                );
                                 return Ok(None);
                             }
                         }

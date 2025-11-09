@@ -24,13 +24,21 @@ use super::{
 static JINJA_ENGINE: OnceLock<Environment<'static>> = OnceLock::new();
 static CHROMIUM_TAB: OnceLock<(Browser, Arc<Tab>)> = OnceLock::new();
 
-pub fn init() -> Result<(), Box<dyn Error>> {
-    tracing::info!("init chromium...");
-    get_chromium_tab()?;
+pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja...");
     get_jinja_engine();
-    tracing::info!("init done!");
-    Ok(())
+    tracing::info!("init jinja done!");
+    tracing::info!("init chromium...");
+    loop {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        match get_chromium_tab() {
+            Ok(_) => {
+                tracing::info!("init chromium done!");
+                return Ok(());
+            }
+            Err(e) => tracing::warn!("chrome not available yet! will try again in a sec...{e}"),
+        }
+    }
 }
 
 pub async fn render<T: Serialize + Debug>(

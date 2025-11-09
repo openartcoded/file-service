@@ -148,7 +148,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .fallback(fallback);
 
     if !cfg!(debug_assertions) {
-        render::init()?;
+        render::init().await?;
     }
     tracing::info!("listening on {:?}", listener);
     axum::serve(listener, app).await?;
