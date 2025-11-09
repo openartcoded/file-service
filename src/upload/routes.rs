@@ -40,8 +40,6 @@ pub async fn make_state(client: StoreClient) -> Result<FileRouterState, Box<dyn 
 #[utoipa::path(
     get,
     path = "/api/v1/upload/metadata",
-    tags = ["upload::routes::metadata"],  
-    operation_id = "metadata",
     params(DownloadFileRequestUriParams),
     responses(
         (status = 200, description = "Get upload metadata", body=FileUploadV2)
@@ -67,8 +65,6 @@ pub async fn metadata(
 #[utoipa::path(
     post,
     path = "/api/v1/upload/download-bulk",
-    tags = ["upload::routes::download-bulk"],  
-    operation_id = "download-bulk",
     request_body=DownloadBulkRequestUriParams,
     responses(
         (status = 200, description = "Download multiple files as a zip",content_type = "*/*",body=inline(OpenApiBinaryResponse))
@@ -119,8 +115,6 @@ pub async fn download_bulk(
 #[utoipa::path(
     get,
     path = "/api/v1/upload/download",
-    tags = ["upload::routes::fetch-by-id"],  
-    operation_id = "download",
     params(DownloadFileRequestUriParams),
     responses(
         (status = 200, description = "Download file",content_type = "*/*",body=inline(OpenApiBinaryResponse))
@@ -172,8 +166,6 @@ pub async fn download(
 #[utoipa::path(
     get,
     path = "/api/v1/upload/find-all",
-     tags = ["upload::routes::fetch-all"],  
-    operation_id = "find-all",
     params(FindAllQueryParams),
     responses(
         (status = 200, description = "Find all upload", body=Vec<FileUploadV2>)
@@ -206,8 +198,6 @@ pub async fn find_all_uploads(
 #[utoipa::path(
     delete,
     path = "/api/v1/upload/{id}",
-    tags = ["upload::routes::upl-delete"],  
-    operation_id = "delete",
     responses(
         (status = 200, description = "Delete a file by id")
     ),
@@ -245,8 +235,8 @@ pub async fn delete_by_id(
 #[utoipa::path(
     get,
     path = "/api/v1/upload/ping",
-    tags = ["upload::routes::ping"],  
-    operation_id = "ping",
+    //tags = ["upload::routes::ping"],  
+    //operation_id = "ping",
     responses(
         (status = 200, description = "Ping")
     ),
@@ -258,8 +248,6 @@ pub async fn ping() -> impl IntoResponse {
 #[utoipa::path(
     post,
     path = "/api/v1/upload/{id}/make-thumb",
-    tags = ["upload::routes::make-thumb"],  
-    operation_id = "make-thumb",
     responses(
         (status = 200, description = "Make thumbnail", body=Option<FileUploadV2>)
     ),
@@ -310,8 +298,6 @@ pub async fn make_thumb(
 #[utoipa::path(
     post,
     path = "/api/v1/upload/{id}/update",
-    tags = ["upload::routes::upload-update"],  
-    operation_id = "upload_update",
     request_body(content = inline(OpenApiDocUploadFormSimpleFile), content_type = "multipart/form-data"),
     responses(
         (status = 200, description = "Upload a file", body=FileUploadV2)
@@ -384,8 +370,6 @@ pub async fn upload_update(
 #[utoipa::path(
     post,
     path = "/api/v1/upload",
-    tags = ["upload::routes::streamupload"],  
-    operation_id = "upload",
     params(UploadFileRequestUriParams),
     request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
     responses(

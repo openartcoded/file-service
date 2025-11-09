@@ -52,7 +52,7 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "File Api V1", title="FileApi",version="0.9", license(identifier="MIT")),
+    info(description = "File Api V1", title="FileApi",version="0.11", license(identifier="MIT")),
     components(schemas(TemplateType,OpenApiBinaryResponse,OpenApiDocUploadFormSimpleFile, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadBulkRequestUriParams,DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,

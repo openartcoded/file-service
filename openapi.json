@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.9"
+    "version": "0.11"
   },
   "paths": {
     "/api/v1/template": {
@@ -314,7 +314,7 @@
     "/api/v1/upload": {
       "post": {
         "tags": [
-          "upload::routes::streamupload"
+          "upload::routes"
         ],
         "operationId": "upload",
         "parameters": [
@@ -395,7 +395,7 @@
     "/api/v1/upload/download": {
       "get": {
         "tags": [
-          "upload::routes::fetch-by-id"
+          "upload::routes"
         ],
         "operationId": "download",
         "parameters": [
@@ -427,9 +427,9 @@
     "/api/v1/upload/download-bulk": {
       "post": {
         "tags": [
-          "upload::routes::download-bulk"
+          "upload::routes"
         ],
-        "operationId": "download-bulk",
+        "operationId": "download_bulk",
         "requestBody": {
           "content": {
             "application/json": {
@@ -459,9 +459,9 @@
     "/api/v1/upload/find-all": {
       "get": {
         "tags": [
-          "upload::routes::fetch-all"
+          "upload::routes"
         ],
-        "operationId": "find-all",
+        "operationId": "find_all_uploads",
         "parameters": [
           {
             "name": "correlationId",
@@ -495,7 +495,7 @@
     "/api/v1/upload/metadata": {
       "get": {
         "tags": [
-          "upload::routes::metadata"
+          "upload::routes"
         ],
         "operationId": "metadata",
         "parameters": [
@@ -525,7 +525,7 @@
     "/api/v1/upload/ping": {
       "get": {
         "tags": [
-          "upload::routes::ping"
+          "upload::routes"
         ],
         "operationId": "ping",
         "responses": {
@@ -538,9 +538,9 @@
     "/api/v1/upload/{id}": {
       "delete": {
         "tags": [
-          "upload::routes::upl-delete"
+          "upload::routes"
         ],
-        "operationId": "delete",
+        "operationId": "delete_by_id",
         "parameters": [
           {
             "name": "id",
@@ -561,9 +561,9 @@
     "/api/v1/upload/{id}/make-thumb": {
       "post": {
         "tags": [
-          "upload::routes::make-thumb"
+          "upload::routes"
         ],
-        "operationId": "make-thumb",
+        "operationId": "make_thumb",
         "parameters": [
           {
             "name": "id",
@@ -598,7 +598,7 @@
     "/api/v1/upload/{id}/update": {
       "post": {
         "tags": [
-          "upload::routes::upload-update"
+          "upload::routes"
         ],
         "operationId": "upload_update",
         "parameters": [
@@ -617,13 +617,12 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "files"
+                  "file"
                 ],
                 "properties": {
-                  "files": {
+                  "file": {
                     "type": "string",
-                    "format": "binary",
-                    "contentMediaType": "application/octet-stream"
+                    "format": "binary"
                   }
                 }
               }
@@ -786,13 +785,12 @@
       "OpenApiDocUploadFormSimpleFile": {
         "type": "object",
         "required": [
-          "files"
+          "file"
         ],
         "properties": {
-          "files": {
+          "file": {
             "type": "string",
-            "format": "binary",
-            "contentMediaType": "application/octet-stream"
+            "format": "binary"
           }
         }
       },
