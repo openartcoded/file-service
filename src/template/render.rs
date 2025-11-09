@@ -30,7 +30,7 @@ pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja done!");
     tracing::info!("init chromium...");
     loop {
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(30)).await;
         match get_chromium_tab() {
             Ok(_) => {
                 tracing::info!("init chromium done!");
@@ -146,7 +146,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                     .display()
             ));
             let options = LaunchOptionsBuilder::default()
-                .sandbox(
+                  .sandbox(
                     std::env::var(CHROMIUM_SANDBOXED)
                         .map(|v| v.parse::<bool>().unwrap_or(false))
                         .unwrap_or(false),
@@ -154,6 +154,11 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                 .idle_browser_timeout(Duration::MAX)
                 .args(vec![
                     OsStr::new("--disable-web-security"),
+                    OsStr::new("--disable-dev-shm-usage"),
+                    OsStr::new("--no-zygote"),
+                    OsStr::new("--no-first-run"),
+                    OsStr::new("--disable-setuid-sandbox"),
+                    OsStr::new("--disable-software-rasterizer"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
                     OsStr::new("--default-background-color=00000000"),
                     &user_data_dir,
