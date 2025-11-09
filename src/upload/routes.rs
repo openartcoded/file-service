@@ -18,7 +18,8 @@ use tokio_util::io::ReaderStream;
 use crate::common::constant::{DEFAULT_TENANT, FILE_SERVICE_COLLECTION_NAME, TMP_FS_PATH};
 use crate::common::domain::ServiceError;
 use crate::common::util::{
-    IdGenerator, OpenApiBinaryResponse, OpenApiDocUploadForm, OpenApiDocUploadFormSimpleFile, StoreCollection
+    IdGenerator, OpenApiBinaryResponse, OpenApiDocUploadForm, OpenApiDocUploadFormSimpleFile,
+    StoreCollection,
 };
 use crate::store::{Repository, StoreClient, StoreRepository};
 use crate::upload::domain::{DownloadBulkRequestUriParams, FindAllQueryParams};
@@ -310,7 +311,6 @@ pub async fn make_thumb(
     post,
     path = "/api/v1/upload/{id}/update",
     tags = ["upload::routes::upload-update"],  
-    operation_id = "update",
     operation_id = "upload_update",
     request_body(content = inline(OpenApiDocUploadFormSimpleFile), content_type = "multipart/form-data"),
     responses(

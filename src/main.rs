@@ -20,7 +20,10 @@ use upload::domain::{
 use utoipa::{Modify, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::{common::util::OpenApiDocUploadFormSimpleFile, template::render, upload::domain::DownloadBulkRequestUriParams};
+use crate::{
+    common::util::OpenApiDocUploadFormSimpleFile, template::render,
+    upload::domain::DownloadBulkRequestUriParams,
+};
 
 mod common;
 mod store;
