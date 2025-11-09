@@ -83,7 +83,7 @@ pub async fn download_bulk(
     let files = repository
         .find_by_ids(ids)
         .await
-        .map_err(|e| ServiceError(e.to_string()))?;
+        .map_err(ServiceError::new)?;
     if files.is_empty() {
         return Ok(StatusCode::NO_CONTENT.into_response());
     }
@@ -266,7 +266,7 @@ pub async fn make_thumb(
     let upl = fs_repository
         .find_by_id(&id)
         .await
-        .map_err(|e| ServiceError(e.to_string()))?;
+        .map_err(ServiceError::new)?;
     if let Some(mut upl) = upl
         && upl.thumbnail_id.is_none()
         && !(matches!(upl.thumb, Some(true)))
@@ -284,7 +284,7 @@ pub async fn make_thumb(
         let _ = fs_repository
             .upsert(&upl.id, &upl)
             .await
-            .map_err(|e| ServiceError(e.to_string()))?;
+            .map_err(ServiceError::new)?;
         return Ok((StatusCode::OK, Json(Some(upl))).into_response());
     }
 
@@ -292,6 +292,79 @@ pub async fn make_thumb(
     Ok((StatusCode::OK, Json(None as Option<FileUploadV2>)).into_response())
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/upload/{id}/update",
+    params(UploadFileRequestUriParams),
+    request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
+    responses(
+        (status = 200, description = "Upload a file", body=FileUploadV2)
+    ),
+    // security(("bearerAuth" = []))
+)]
+pub async fn upload_update(
+    State(FileRouterState { client, collection }): State<FileRouterState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    mut multipart: Multipart,
+) -> axum::response::Result<axum::response::Response> {
+    tracing::debug!("Upload update route entered!");
+    let not_found =
+        Ok((StatusCode::NOT_FOUND, Json(json!({"error": "not found"}))).into_response());
+    let tmp_fs_folder = TMP_FS_PATH.join(IdGenerator.get());
+    let repository: StoreRepository<FileUploadV2> =
+        StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
+    let Some(mut fu) = repository
+        .find_by_id(&id)
+        .await
+        .map_err(ServiceError::new)?
+    else {
+        return not_found;
+    };
+    let Some(mut field) = multipart.next_field().await.map_err(ServiceError::new)? else {
+        return not_found;
+    };
+    let file_name = field
+        .file_name()
+        .ok_or(ServiceError::new("no file name in field"))?
+        .to_string();
+
+    fu.content_type = field.content_type().map(|ct| ct.into()).or_else(|| {
+        mime_guess::from_path(&file_name)
+            .first_raw()
+            .map(|ct| ct.into())
+    });
+    fu = FileUploadV2 {
+        content_type: field.content_type().map(|ct| ct.into()).or_else(|| {
+            mime_guess::from_path(&file_name)
+                .first_raw()
+                .map(|ct| ct.into())
+        }),
+        extension: Path::new(&file_name)
+            .extension()
+            .map(|s| s.to_string_lossy().to_string()),
+        original_filename: file_name.to_string(),
+        name: Some(file_name.to_string()),
+        updated_date: Some(DateTime::now()),
+        ..fu
+    };
+    let (temp_file_path, len) = write_field_to_temp_file(&mut field, &tmp_fs_folder, &file_name)
+        .await
+        .map_err(ServiceError::new)?;
+
+    fu.size = len;
+
+    tracing::debug!("Length of `{}` is {} bytes", file_name, len);
+    let file_service = FileService { store: repository };
+    let upl = file_service.upload(fu, Some(&temp_file_path), true).await?;
+    tokio::spawn(async move {
+        tracing::info!("deleting temp upload folder");
+        if let Err(e) = tokio::fs::remove_dir_all(&tmp_fs_folder).await {
+            tracing::error!("could not delete temp folder from tmp fs {e}");
+        }
+    });
+
+    Ok((StatusCode::OK, Json(upl)).into_response())
+}
 #[utoipa::path(
     post,
     path = "/api/v1/upload",
@@ -315,7 +388,7 @@ pub async fn upload(
     while let Some(mut field) = multipart.next_field().await? {
         let file_name = field
             .file_name()
-            .ok_or(ServiceError("no file name in field".into()))?
+            .ok_or(ServiceError::new("no file name in field"))?
             .to_string();
 
         let mut file_upload = FileUploadV2 {
@@ -337,7 +410,7 @@ pub async fn upload(
         let (temp_file_path, len) =
             write_field_to_temp_file(&mut field, &tmp_fs_folder, &file_name)
                 .await
-                .map_err(|e| ServiceError(e.to_string()))?;
+                .map_err(ServiceError::new)?;
 
         file_upload.size = len;
 
@@ -366,6 +439,6 @@ pub async fn upload(
             tracing::error!("could not delete temp folder from tmp fs {e}");
         }
     });
-  
+
     Ok((StatusCode::OK, Json(uploads_resp)).into_response())
 }

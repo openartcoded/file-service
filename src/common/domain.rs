@@ -4,7 +4,7 @@ use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 
 #[derive(Debug)]
-pub struct ServiceError(pub String);
+pub struct ServiceError(String);
 
 impl Display for ServiceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -14,8 +14,8 @@ impl Display for ServiceError {
 impl Error for ServiceError {}
 
 impl ServiceError {
-    pub fn from(e: &dyn Error) -> Self {
-        ServiceError(e.to_string())
+    pub fn new(msg: impl Display) -> Self {
+        ServiceError(msg.to_string())
     }
 }
 impl IntoResponse for ServiceError {

@@ -63,11 +63,13 @@ pub async fn render<T: Serialize + Debug>(
                 TemplateType::Html => html_to_pdf(&templ_bytes, templ_ctx).await,
                 TemplateType::Xml => xml_to_xml(&templ_bytes, templ_ctx).await,
             }
-            .map_err(|e| ServiceError(format!("cannot convert html to pdf: {e} {templ_ctx:?}")))?;
+            .map_err(|e| {
+                ServiceError::new(format!("cannot convert html to pdf: {e} {templ_ctx:?}"))
+            })?;
 
             Ok(result)
         }
-        None => Err(ServiceError(format!(
+        None => Err(ServiceError::new(format!(
             "templ with id {} doesn't seem to exist in db",
             templ.file_id
         ))),

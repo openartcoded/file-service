@@ -61,7 +61,7 @@ impl FileUploadV2 {
         public_resource: bool,
         size: u64,
     ) -> Result<FileUploadV2, ServiceError> {
-        let path = PathBuf::from_str(path).map_err(|e| ServiceError(format!("{e}")))?;
+        let path = PathBuf::from_str(path).map_err(ServiceError::new)?;
 
         let f = FileUploadV2 {
             content_type: mime_guess::from_path(path.as_path())

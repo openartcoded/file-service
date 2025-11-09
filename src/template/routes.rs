@@ -252,20 +252,16 @@ pub async fn upsert(
         .upsert(Some(true))
         .build();
 
-    match form
-        .next_field()
-        .await
-        .map_err(|e| ServiceError(e.to_string()))?
-    {
+    match form.next_field().await.map_err(ServiceError::new)? {
         Some(mut field) => {
             let Some(file_name) = field.file_name().map(|s| s.to_string()) else {
-                return Err(ServiceError("missing filename".into()).into());
+                return Err(ServiceError::new("missing filename").into());
             };
 
             let (temp_path, len) =
                 write_field_to_temp_file(&mut field, SHARE_DRIVE_PATH_BUF.clone(), &file_name)
                     .await
-                    .map_err(|s| ServiceError(s.to_string()))?;
+                    .map_err(ServiceError::new)?;
 
             match &template_type {
                 TemplateType::Html => {

@@ -49,7 +49,7 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "File Api V1", title="FileApi",version="0.7", license(identifier="MIT")),
+    info(description = "File Api V1", title="FileApi",version="0.8", license(identifier="MIT")),
     components(schemas(TemplateType,OpenApiBinaryResponse, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadBulkRequestUriParams,DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
@@ -60,6 +60,7 @@ impl FromRef<AppState> for TemplRouterState {
         upload::routes::download,
         upload::routes::upload,
         upload::routes::delete_by_id,
+        upload::routes::upload_update,
         template::routes::find_all,
         template::routes::find_by_ids,
         template::routes::find_by_context,
@@ -112,6 +113,7 @@ fn get_file_router() -> Router<AppState> {
         .route("/download", get(upload::routes::download))
         .route("/download-bulk", post(upload::routes::download_bulk))
         .route("/metadata", get(upload::routes::metadata))
+        .route("/{id}/update", post(upload::routes::upload_update))
         .route("/", post(upload::routes::upload))
         .layer(DefaultBodyLimit::max(*BODY_SIZE_LIMIT))
 }

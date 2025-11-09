@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.7"
+    "version": "0.8"
   },
   "paths": {
     "/api/v1/template": {
@@ -588,6 +588,92 @@
                       "$ref": "#/components/schemas/FileUploadV2"
                     }
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/upload/{id}/update": {
+      "post": {
+        "tags": [
+          "upload::routes"
+        ],
+        "operationId": "upload_update",
+        "parameters": [
+          {
+            "name": "correlation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "is_public",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "without_thumbnail",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "files"
+                ],
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "contentMediaType": "application/octet-stream"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Upload a file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadV2"
                 }
               }
             }

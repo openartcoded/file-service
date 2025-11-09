@@ -85,21 +85,19 @@ impl FileService {
         let (extension, thumb) = {
             async fn chrome_proc(temp_file_path: &Path) -> Result<Vec<u8>, ServiceError> {
                 // first try with chromium as it seems faster
-                let tab = get_chromium_tab().map_err(|e| ServiceError(e.to_string()))?;
+                let tab = get_chromium_tab().map_err(ServiceError::new)?;
                 let file_url = format!("file://{}", temp_file_path.display());
-                tab.navigate_to(&file_url)
-                    .map_err(|e| ServiceError(e.to_string()))?;
-                tab.wait_until_navigated()
-                    .map_err(|e| ServiceError(e.to_string()))?;
+                tab.navigate_to(&file_url).map_err(ServiceError::new)?;
+                tab.wait_until_navigated().map_err(ServiceError::new)?;
                 let viewport = tab
                     .evaluate(GET_VIEW_PORT_JS_SCRIPT, true)
-                    .map_err(|e| ServiceError(e.to_string()))?
+                    .map_err(ServiceError::new)?
                     .value
-                    .ok_or_else(|| ServiceError("Failed to get viewport dimensions".to_string()))?;
+                    .ok_or_else(|| ServiceError::new("Failed to get viewport dimensions"))?;
 
                 // Parse viewport dimensions
                 let clip = serde_json::from_value::<Viewport>(viewport)
-                    .map_err(|e| ServiceError(format!("Failed to parse viewport: {}", e)))?;
+                    .map_err(|e| ServiceError::new(format!("Failed to parse viewport: {}", e)))?;
 
                 // Capture screenshot with the specific viewport
                 let png_data = tab
@@ -115,7 +113,7 @@ impl FileService {
                         }),
                         true,
                     )
-                    .map_err(|e| ServiceError(e.to_string()))?;
+                    .map_err(ServiceError::new)?;
 
                 Ok(png_data)
             }
@@ -123,15 +121,15 @@ impl FileService {
             let (ct, image) = if upl.is_supported_image() {
                 let bytes = tokio::fs::read(temp_file_path)
                     .await
-                    .map_err(|e| ServiceError::from(&e))?;
+                    .map_err(ServiceError::new)?;
 
                 image::load_from_memory(&bytes)
-                    .map_err(|e| ServiceError::from(&e))
+                    .map_err(ServiceError::new)
                     .map(|im| (upl.content_type.clone(), im))
             } else {
                 match chrome_proc(temp_file_path).await.map(|bytes| {
                     image::load_from_memory(&bytes)
-                        .map_err(|e| ServiceError(e.to_string()))
+                        .map_err(ServiceError::new)
                         .map(|im| (Some(IMAGE_PNG.to_string()), im))
                 }) {
                     Ok(img) => img,
@@ -139,10 +137,10 @@ impl FileService {
                         tracing::error!("error converting file {}: {} ", internal_name, e);
                         match convert_to(temp_file_path, ConvertType::Png)
                             .await
-                            .map_err(|e| ServiceError(e.to_string()))
+                            .map_err(ServiceError::new)
                             .map(|bytes| {
                                 image::load_from_memory(&bytes)
-                                    .map_err(|e| ServiceError::from(&e))
+                                    .map_err(ServiceError::new)
                                     .map(|im| (Some(IMAGE_PNG.to_string()), im))
                             }) {
                             Ok(img) => img,
@@ -162,12 +160,12 @@ impl FileService {
             let thumb = image.thumbnail(*THUMB_W, *THUMB_H);
 
             let Some(ct) = ct else {
-                return Err(ServiceError("No Content type! Should not happen".into()));
+                return Err(ServiceError::new("No Content type! Should not happen"));
             };
 
             let Some(image_format) = ImageFormat::from_mime_type(ct) else {
-                return Err(ServiceError(
-                    "Format cannot be transformed to thumbnail".into(),
+                return Err(ServiceError::new(
+                    "Format cannot be transformed to thumbnail",
                 ));
             };
 
@@ -177,16 +175,12 @@ impl FileService {
 
             thumb
                 .write_to(&mut cursor, image_format)
-                .map_err(|e| ServiceError(format!("{e}")))?;
-            cursor
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| ServiceError(format!("{e}")))?;
+                .map_err(ServiceError::new)?;
+            cursor.seek(SeekFrom::Start(0)).map_err(ServiceError::new)?;
 
             let mut thumb = Vec::new();
 
-            cursor
-                .read_to_end(&mut thumb)
-                .map_err(|e| ServiceError(format!("{e}")))?;
+            cursor.read_to_end(&mut thumb).map_err(ServiceError::new)?;
             (image_format.extensions_str().join("."), thumb)
         };
 
@@ -216,12 +210,12 @@ impl FileService {
 
         tokio::fs::write(path_buf, thumb.as_bytes())
             .await
-            .map_err(|e| ServiceError::from(&e))?;
+            .map_err(ServiceError::new)?;
 
         self.store
             .upsert(&thumbnail.id, &thumbnail)
             .await
-            .map_err(|e| ServiceError::from(&e))?;
+            .map_err(ServiceError::new)?;
         Ok(Some(thumbnail.id))
     }
 
@@ -236,7 +230,7 @@ impl FileService {
                 .store
                 .find_by_id(&upl.id)
                 .await
-                .map_err(|e| ServiceError::from(&e))?;
+                .map_err(ServiceError::new)?;
             let (old_internal_name, old_thumbnail_id) = if let Some(upload) = upload {
                 (
                     Some(self.get_filename_on_disk(&upload)),
@@ -259,7 +253,7 @@ impl FileService {
                     self.store
                         .delete_by_id(&old_thumbnail_id)
                         .await
-                        .map_err(|e| ServiceError::from(&e))?;
+                        .map_err(ServiceError::new)?;
 
                     tracing::info!("removing old thumbnail {}", old_thumbnail_id);
                     if let Err(e) = tokio::fs::remove_file(
@@ -274,7 +268,7 @@ impl FileService {
             let final_file_path = SHARE_DRIVE_PATH_BUF.join(&internal_name);
             tokio::fs::rename(temp_file_path, &final_file_path)
                 .await
-                .map_err(|e| ServiceError::from(&e))?;
+                .map_err(ServiceError::new)?;
             upl.name = Some(internal_name.clone());
             Some((internal_name, final_file_path))
         } else {
@@ -284,7 +278,7 @@ impl FileService {
         self.store
             .upsert(&upl.id, &upl)
             .await
-            .map_err(|e| ServiceError::from(&e))?;
+            .map_err(ServiceError::new)?;
 
         if let Some((internal_name, final_file_path)) = final_file
             && !without_thumbnail
@@ -306,7 +300,7 @@ impl FileService {
                             .store
                             .upsert(&upl.id, &upl)
                             .await
-                            .map_err(|e| ServiceError::from(&e))
+                            .map_err(ServiceError::new)
                         {
                             tracing::error!(
                                 "could not save {upl:?} after generating thumbnail {err}"
@@ -324,12 +318,12 @@ impl FileService {
             .store
             .find_by_query(query, None)
             .await
-            .map_err(|e| ServiceError::from(&e))?;
+            .map_err(ServiceError::new)?;
         for upl in upls {
             self.store
                 .delete_by_id(&upl.id)
                 .await
-                .map_err(|e| ServiceError::from(&e))?;
+                .map_err(ServiceError::new)?;
             if let Err(e) =
                 tokio::fs::remove_file(self.get_physical_path(&self.get_filename_on_disk(&upl)))
                     .await
@@ -342,7 +336,7 @@ impl FileService {
                 self.store
                     .delete_by_id(&thumb.id)
                     .await
-                    .map_err(|e| ServiceError::from(&e))?;
+                    .map_err(ServiceError::new)?;
                 if let Err(e) = tokio::fs::remove_file(
                     self.get_physical_path(&self.get_filename_on_disk(&thumb)),
                 )
@@ -372,7 +366,7 @@ impl FileService {
     pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
         tokio::fs::File::open(self.get_physical_path(&self.get_filename_on_disk(upl)))
             .await
-            .map_err(|e| ServiceError::from(&e))
+            .map_err(ServiceError::new)
     }
     pub async fn download_bulk(
         &self,
@@ -382,14 +376,14 @@ impl FileService {
         let zip_path = TMP_FS_PATH.join(format!("{}.zip", IdGenerator.get()));
         let mut zip = tokio::fs::File::create(&zip_path)
             .await
-            .map_err(|e| ServiceError(e.to_string()))?;
+            .map_err(ServiceError::new)?;
         let mut writer = ZipFileWriter::with_tokio(&mut zip);
         for upl in upls {
             let mut file = self.download(upl).await?;
             let mut data = Vec::new();
             file.read_to_end(&mut data)
                 .await
-                .map_err(|e| ServiceError(e.to_string()))?;
+                .map_err(ServiceError::new)?;
             let builder = ZipEntryBuilder::new(
                 upl.original_filename.to_string().into(),
                 Compression::Deflate,
@@ -397,15 +391,12 @@ impl FileService {
             writer
                 .write_entry_whole(builder, &data)
                 .await
-                .map_err(|e| ServiceError(e.to_string()))?;
+                .map_err(ServiceError::new)?;
         }
-        writer
-            .close()
-            .await
-            .map_err(|e| ServiceError(e.to_string()))?;
+        writer.close().await.map_err(ServiceError::new)?;
         let file = tokio::fs::File::open(&zip_path)
             .await
-            .map_err(|e| ServiceError(e.to_string()))?;
+            .map_err(ServiceError::new)?;
 
         Ok((file, zip_path))
     }
@@ -417,7 +408,7 @@ impl FileService {
         download
             .read_to_end(&mut bytes)
             .await
-            .map_err(|e| ServiceError(format!("{e}")))?;
+            .map_err(ServiceError::new)?;
         Ok(bytes)
     }
 }
