@@ -298,7 +298,7 @@ pub async fn make_thumb(
     params(UploadFileRequestUriParams),
     request_body(content = inline(OpenApiDocUploadForm), content_type = "multipart/form-data"),
     responses(
-        (status = 200, description = "Upload a file", body=FileUploadV2)
+        (status = 200, description = "Upload a file", body=Vec<FileUploadV2>)
     ),
     // security(("bearerAuth" = []))
 )]
@@ -366,10 +366,6 @@ pub async fn upload(
             tracing::error!("could not delete temp folder from tmp fs {e}");
         }
     });
-    let json_resp = if uploads_resp.len() == 1 {
-        (StatusCode::OK, Json(uploads_resp.remove(0))).into_response()
-    } else {
-        (StatusCode::OK, Json(uploads_resp)).into_response()
-    };
-    Ok(json_resp)
+  
+    Ok((StatusCode::OK, Json(uploads_resp)).into_response())
 }

@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.6"
+    "version": "0.7"
   },
   "paths": {
     "/api/v1/template": {
@@ -381,7 +381,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileUploadV2"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileUploadV2"
+                  }
                 }
               }
             }
