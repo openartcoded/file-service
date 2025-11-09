@@ -38,7 +38,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: true
-          tags: nbittich/file-service:${{ matrix.platform }}
+          tags: nbittich/file-service:${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=nbittich/file-service:buildcache
           cache-to: type=registry,ref=nbittich/file-service:buildcache,mode=max
@@ -58,5 +58,5 @@ jobs:
       - name: Create and push multi-arch manifest
         run: |
           docker buildx imagetools create -t nbittich/file-service:${GITHUB_REF_NAME} \
-            nbittich/file-service:linux/amd64 \
-            nbittich/file-service:linux/arm64
+            nbittich/file-service:amd64 \
+            nbittich/file-service:arm64
