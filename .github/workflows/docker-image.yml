@@ -5,7 +5,7 @@ on:
       - "main"
 
 jobs:
-  docker:
+  build:
     strategy:
       matrix:
         include:
