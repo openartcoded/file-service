@@ -51,5 +51,6 @@ openapi-generator-cli generate -i file-service/openapi.json -g java -o file-serv
 
 ### dev
 ```
+MONGO_PORT=27018 SERVICE_PORT=8086 SHARE_DRIVE_PATH=/tmp/xx TMP_FS_PATH=/tmp/ouch RUST_LOG=info cargo run -- --generate-openapi
 MONGO_PORT=27018 SERVICE_PORT=8086 SHARE_DRIVE_PATH=/tmp/xx TMP_FS_PATH=/tmp/ouch RUST_LOG=info cargo run
 ```

@@ -129,7 +129,6 @@ impl Default for FileUploadV2 {
 #[derive(Debug, Serialize, Deserialize, IntoParams, ToSchema)]
 pub struct UploadFileRequestUriParams {
     pub correlation_id: Option<String>,
-    pub id: Option<String>,
     pub is_public: Option<bool>,
     pub without_thumbnail: Option<bool>,
 }

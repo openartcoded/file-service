@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.4"
+    "version": "0.6"
   },
   "paths": {
     "/api/v1/template": {
@@ -330,17 +330,6 @@
             }
           },
           {
-            "name": "id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          {
             "name": "is_public",
             "in": "query",
             "required": false,
@@ -433,24 +422,21 @@
       }
     },
     "/api/v1/upload/download-bulk": {
-      "get": {
+      "post": {
         "tags": [
           "upload::routes"
         ],
         "operationId": "download_bulk",
-        "parameters": [
-          {
-            "name": "ids",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadBulkRequestUriParams"
               }
             }
-          }
-        ],
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Download multiple files as a zip",
@@ -852,12 +838,6 @@
         "type": "object",
         "properties": {
           "correlation_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "id": {
             "type": [
               "string",
               "null"
