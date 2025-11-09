@@ -3,7 +3,11 @@ FROM alpine:3.22 AS runtime
 
 RUN apk add --no-cache tzdata
 RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
-RUN apk add --no-cache ca-certificates libreoffice chromium
+RUN apk add --no-cache ca-certificates libreoffice chromium 
+RUN apk add --no-cache \
+       --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+       --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
+       gperftools-dev
 
 ## INITIAL BUILDER
 FROM rust:1.91-alpine3.22 AS builder
@@ -25,6 +29,7 @@ RUN rm -rf src
 ## BUILD LAYER
 FROM cache AS build
 WORKDIR /app
+RUN rm -rf ./src
 COPY ./src ./src
 RUN cargo build --release
 
