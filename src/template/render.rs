@@ -35,16 +35,20 @@ pub async fn init() -> Result<(), Box<dyn Error>> {
     get_jinja_engine();
     tracing::info!("init jinja done!");
     tracing::info!("init chromium...");
-    loop {
-        match get_chromium_tab() {
-            Ok(_) => {
-                tracing::info!("init chromium done!");
-                return Ok(());
+    tokio::task::spawn_blocking(move || {
+        loop {
+            match get_chromium_tab() {
+                Ok(_) => {
+                    tracing::info!("init chrome done!");
+                    break;
+                }
+                Err(e) => tracing::warn!("chrome not available yet! will try again in a sec...{e}"),
             }
-            Err(e) => tracing::warn!("chrome not available yet! will try again in a sec...{e}"),
+            std::thread::sleep(Duration::from_secs(30));
         }
-        tokio::time::sleep(Duration::from_secs(30)).await;
-    }
+    })
+    .await?;
+    Ok(())
 }
 
 pub async fn render<T: Serialize + Debug>(
@@ -162,7 +166,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                     //  OsStr::new("--disable-setuid-sandbox"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
                     //  OsStr::new("--default-background-color=00000000"),
-                    OsStr::new("--disable-dev-shm-usage"), 
+                    OsStr::new("--disable-dev-shm-usage"),
                     &user_data_dir,
                 ])
                 .build()
