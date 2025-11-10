@@ -7,6 +7,8 @@ use tracing::Level;
 use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::OffsetTime};
 use utoipa::{IntoParams, ToSchema};
 
+use crate::upload::domain::FileUploadV2;
+
 #[derive(utoipa::ToSchema)]
 #[schema(format = Binary,content_media_type = "*/*")]
 #[allow(unused)]
@@ -23,6 +25,7 @@ pub struct OpenApiDocUploadForm {
 pub struct OpenApiDocUploadFormSimpleFile {
     #[schema(value_type=String, format = Binary)]
     pub file: String,
+    pub file_upload: Option<FileUploadV2>,
 }
 pub fn setup_tracing() -> Result<(), Box<dyn Error>> {
     let offset_hours = {

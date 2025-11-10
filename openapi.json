@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.11"
+    "version": "0.12"
   },
   "paths": {
     "/api/v1/template": {
@@ -603,6 +603,39 @@
         "operationId": "upload_update",
         "parameters": [
           {
+            "name": "correlation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "is_public",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "without_thumbnail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
             "name": "id",
             "in": "path",
             "required": true,
@@ -623,6 +656,16 @@
                   "file": {
                     "type": "string",
                     "format": "binary"
+                  },
+                  "file_upload": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/FileUploadV2"
+                      }
+                    ]
                   }
                 }
               }
@@ -632,7 +675,7 @@
         },
         "responses": {
           "200": {
-            "description": "Upload a file",
+            "description": "Upload (and update) a file",
             "content": {
               "application/json": {
                 "schema": {
@@ -791,6 +834,16 @@
           "file": {
             "type": "string",
             "format": "binary"
+          },
+          "file_upload": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FileUploadV2"
+              }
+            ]
           }
         }
       },

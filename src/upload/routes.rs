@@ -298,15 +298,21 @@ pub async fn make_thumb(
 #[utoipa::path(
     post,
     path = "/api/v1/upload/{id}/update",
+    params(UploadFileRequestUriParams),
     request_body(content = inline(OpenApiDocUploadFormSimpleFile), content_type = "multipart/form-data"),
     responses(
-        (status = 200, description = "Upload a file", body=FileUploadV2)
+        (status = 200, description = "Upload (and update) a file", body=FileUploadV2)
     ),
     // security(("bearerAuth" = []))
 )]
 pub async fn upload_update(
     State(FileRouterState { client, collection }): State<FileRouterState>,
     axum::extract::Path(id): axum::extract::Path<String>,
+    axum::extract::Query(UploadFileRequestUriParams {
+        correlation_id,
+        is_public,
+        ..
+    }): axum::extract::Query<UploadFileRequestUriParams>,
     mut multipart: Multipart,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Upload update route entered!");
@@ -315,12 +321,24 @@ pub async fn upload_update(
     let tmp_fs_folder = TMP_FS_PATH.join(IdGenerator.get());
     let repository: StoreRepository<FileUploadV2> =
         StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
-    let Some(mut fu) = repository
+    let mut fu = if let Some(fu) = repository
         .find_by_id(&id)
         .await
         .map_err(ServiceError::new)?
-    else {
-        return not_found;
+    {
+        FileUploadV2 {
+            correlation_id: correlation_id.or(fu.correlation_id),
+            public_resource: is_public.unwrap_or(fu.public_resource),
+            ..fu
+        }
+    } else {
+        FileUploadV2 {
+            id,
+            correlation_id,
+            public_resource: is_public.unwrap_or(false),
+            creation_date: DateTime::now(),
+            ..Default::default()
+        }
     };
     let Some(mut field) = multipart.next_field().await.map_err(ServiceError::new)? else {
         return not_found;
@@ -330,11 +348,6 @@ pub async fn upload_update(
         .ok_or(ServiceError::new("no file name in field"))?
         .to_string();
 
-    fu.content_type = field.content_type().map(|ct| ct.into()).or_else(|| {
-        mime_guess::from_path(&file_name)
-            .first_raw()
-            .map(|ct| ct.into())
-    });
     fu = FileUploadV2 {
         content_type: field.content_type().map(|ct| ct.into()).or_else(|| {
             mime_guess::from_path(&file_name)
