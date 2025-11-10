@@ -159,7 +159,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
 
             let cleanup_dir = data_dir.clone();
             if let Some(true) = std::env::var("CLEARING_CHROMIUM_USER_DATA_DIR")
-                .map(|p| p.parse::<bool>().ok())
+                .map(|p| p.trim().to_lowercase().parse::<bool>().ok())
                 .iter()
                 .flatten()
                 .next()
