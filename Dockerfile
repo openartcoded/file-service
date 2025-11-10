@@ -24,7 +24,6 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 ENV RUSTFLAGS="-C link-args=-ltcmalloc"
 RUN cargo build --release
-RUN rm -rf src
 
 ## BUILD LAYER
 FROM cache AS build
