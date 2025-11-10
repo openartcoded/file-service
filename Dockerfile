@@ -3,7 +3,7 @@ FROM alpine:3.22 AS runtime
 
 RUN apk add --no-cache tzdata
 RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
-RUN apk add --no-cache ca-certificates libreoffice 
+RUN apk add --no-cache ca-certificates libreoffice chromium
 RUN apk add --no-cache \
        --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
        --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \

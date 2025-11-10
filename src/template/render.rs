@@ -162,7 +162,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                     //  OsStr::new("--disable-setuid-sandbox"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
                     //  OsStr::new("--default-background-color=00000000"),
-                    OsStr::new("--disable-dev-shm-usage"), // Important for containers
+                    OsStr::new("--disable-dev-shm-usage"), 
                     &user_data_dir,
                 ])
                 .build()
