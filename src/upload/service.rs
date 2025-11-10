@@ -266,9 +266,26 @@ impl FileService {
                 }
             }
             let final_file_path = SHARE_DRIVE_PATH_BUF.join(&internal_name);
-            tokio::fs::rename(temp_file_path, &final_file_path)
+            match tokio::fs::rename(&temp_file_path, &final_file_path)
                 .await
-                .map_err(ServiceError::new)?;
+                .map_err(ServiceError::new)
+            {
+                Ok(_) => (),
+                Err(e) => {
+                    tracing::error!(
+                        "we couldn't simply rename files, could be related to os error 18: {e}"
+                    );
+                    tracing::info!("let's try with just copy and delete then");
+                    tracing::info!("copy...");
+                    tokio::fs::copy(&temp_file_path, &final_file_path)
+                        .await
+                        .map_err(ServiceError::new)?;
+                    tracing::info!("delete...");
+                    tokio::fs::remove_file(&temp_file_path)
+                        .await
+                        .map_err(ServiceError::new)?;
+                }
+            }
             upl.name = Some(internal_name.clone());
             Some((internal_name, final_file_path))
         } else {
