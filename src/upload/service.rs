@@ -364,9 +364,9 @@ impl FileService {
     }
 
     pub async fn download(&self, upl: &FileUploadV2) -> Result<File, ServiceError> {
-        tokio::fs::File::open(self.get_physical_path(&self.get_filename_on_disk(upl)))
-            .await
-            .map_err(ServiceError::new)
+        let path = self.get_physical_path(&self.get_filename_on_disk(upl));
+        tracing::info!("downloading {path:?}");
+        tokio::fs::File::open(path).await.map_err(ServiceError::new)
     }
     pub async fn download_bulk(
         &self,

@@ -3,6 +3,7 @@ use std::{
     error::Error,
     ffi::{OsStr, OsString},
     fmt::Debug,
+    ops::Deref,
     sync::{Arc, OnceLock},
     time::Duration,
 };
@@ -12,7 +13,11 @@ use minijinja::Environment;
 use serde::Serialize;
 
 use crate::{
-    common::{constant::TZ, domain::ServiceError, util::IdGenerator},
+    common::{
+        constant::{SHARE_DRIVE_PATH_BUF, TZ},
+        domain::ServiceError,
+        util::IdGenerator,
+    },
     upload::{domain::FileRouterState, service::FileService},
 };
 
@@ -22,7 +27,8 @@ use super::{
 };
 
 static JINJA_ENGINE: OnceLock<Environment<'static>> = OnceLock::new();
-static CHROMIUM_TAB: OnceLock<(Browser, Arc<Tab>)> = OnceLock::new();
+pub struct ChromiumTab(OnceLock<(Browser, Arc<Tab>)>);
+static CHROMIUM_TAB: ChromiumTab = ChromiumTab(OnceLock::new());
 
 pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja...");
@@ -30,7 +36,6 @@ pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja done!");
     tracing::info!("init chromium...");
     loop {
-        tokio::time::sleep(Duration::from_secs(30)).await;
         match get_chromium_tab() {
             Ok(_) => {
                 tracing::info!("init chromium done!");
@@ -38,6 +43,7 @@ pub async fn init() -> Result<(), Box<dyn Error>> {
             }
             Err(e) => tracing::warn!("chrome not available yet! will try again in a sec...{e}"),
         }
+        tokio::time::sleep(Duration::from_secs(30)).await;
     }
 }
 
@@ -141,34 +147,63 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
         None => {
             let user_data_dir = OsString::from(format!(
                 "--user-data-dir={}",
-                dirs::home_dir()
-                    .unwrap_or_else(std::env::temp_dir)
-                    .display()
+                SHARE_DRIVE_PATH_BUF.display()
             ));
+            let sandboxed = std::env::var(CHROMIUM_SANDBOXED)
+                .map(|v| v.parse::<bool>().unwrap_or(false))
+                .unwrap_or(false);
             let options = LaunchOptionsBuilder::default()
-                  .sandbox(
-                    std::env::var(CHROMIUM_SANDBOXED)
-                        .map(|v| v.parse::<bool>().unwrap_or(false))
-                        .unwrap_or(false),
-                )
+                .sandbox(sandboxed)
                 .idle_browser_timeout(Duration::MAX)
                 .args(vec![
                     OsStr::new("--disable-web-security"),
-                    OsStr::new("--disable-dev-shm-usage"),
                     OsStr::new("--no-zygote"),
                     OsStr::new("--no-first-run"),
-                    OsStr::new("--disable-setuid-sandbox"),
-                    OsStr::new("--disable-software-rasterizer"),
+                    //  OsStr::new("--disable-setuid-sandbox"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
-                    OsStr::new("--default-background-color=00000000"),
+                    //  OsStr::new("--default-background-color=00000000"),
+                    OsStr::new("--disable-dev-shm-usage"), // Important for containers
                     &user_data_dir,
                 ])
                 .build()
                 .map_err(|e| format!("invalid options: {e}"))?;
 
-            let browser = Browser::new(options)?;
+            tracing::info!("chromium opts: {options:?}");
 
-            let tab = browser.new_tab()?;
+            let browser = Browser::new(options)?;
+            std::thread::sleep(Duration::from_secs(2));
+            tracing::info!("we got a browser: {:?}", browser.get_process_id());
+            for attempt in 1..=10 {
+                match browser.get_version() {
+                    Ok(version) => {
+                        tracing::info!("browser ready: {}", version.product);
+                        break;
+                    }
+                    Err(e) if attempt < 10 => {
+                        tracing::warn!("waiting for browser (attempt {}): {}", attempt, e);
+                        std::thread::sleep(Duration::from_millis(500));
+                    }
+                    Err(e) => {
+                        return Err(format!("browser not ready after 10 attempts: {}", e).into());
+                    }
+                }
+            }
+
+            let tab = match browser.new_tab() {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::error!("failed to create tab: {}", e);
+                    return Err(e.into());
+                }
+            };
+
+            // Wait for tab to be ready
+            std::thread::sleep(Duration::from_millis(200));
+
+            tab.activate()?;
+            tracing::info!("tab activated successfully");
+
+            tracing::info!("we got a tab");
 
             CHROMIUM_TAB
                 .set((browser, tab.clone()))
@@ -178,6 +213,22 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     }
 }
 
+impl Deref for ChromiumTab {
+    type Target = OnceLock<(headless_chrome::Browser, Arc<headless_chrome::Tab>)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Drop for ChromiumTab {
+    fn drop(&mut self) {
+        if let Some((browser, tab)) = self.0.take() {
+            tracing::info!("closing tab result: {:?}", tab.close(true));
+            drop(tab);
+            drop(browser);
+        }
+    }
+}
 #[cfg(test)]
 mod test {
     use std::error::Error;

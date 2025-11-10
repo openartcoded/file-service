@@ -35,7 +35,7 @@ pub static SERVICE_APPLICATION_NAME: LazyLock<String> = LazyLock::new(|| {
 });
 
 pub static SHARE_DRIVE_PATH_BUF: LazyLock<PathBuf> = LazyLock::new(|| {
-    let share_drive_path: String = std::env::var("SHARE_DRIVE_PATH_BUF").unwrap_or_else(|_| {
+    let share_drive_path: String = std::env::var("SHARE_DRIVE_PATH").unwrap_or_else(|_| {
         dirs::home_dir()
             .unwrap_or_else(std::env::temp_dir)
             .join(SERVICE_APPLICATION_NAME.to_string())

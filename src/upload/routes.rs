@@ -132,9 +132,9 @@ pub async fn download(
         .await
     {
         Some((repo, file)) => {
-            tracing::debug!("file found in db! {:?}", file);
+            tracing::info!("file found in db! {:?}", file);
             let file_service = FileService { store: repo };
-            tracing::debug!("downloading file...");
+            tracing::info!("downloading file...");
 
             let file_handle = file_service.download(&file).await?;
             let stream = ReaderStream::new(file_handle);
