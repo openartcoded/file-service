@@ -158,7 +158,13 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
             let handle = tokio::runtime::Handle::current();
 
             let cleanup_dir = data_dir.clone();
-            handle.spawn(async move {
+            if let Some(true) = std::env::var("CLEARING_CHROMIUM_USER_DATA_DIR")
+                .map(|p| p.parse::<bool>().ok())
+                .iter()
+                .flatten()
+                .next()
+            {
+                handle.spawn(async move {
                 loop {
                     tracing::info!("starting next clearing procedure of the chrome user data dir");
                     let now = Local::now();
@@ -187,6 +193,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                     );
                 }
             });
+            }
 
             let user_data_dir = OsString::from(format!("--user-data-dir={}", data_dir.display()));
             let sandboxed = std::env::var(CHROMIUM_SANDBOXED)
