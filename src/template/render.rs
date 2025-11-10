@@ -4,17 +4,20 @@ use std::{
     ffi::{OsStr, OsString},
     fmt::Debug,
     ops::Deref,
+    path::PathBuf,
     sync::{Arc, OnceLock},
     time::Duration,
 };
 
+use chrono::Local;
 use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
 use minijinja::Environment;
 use serde::Serialize;
+use tokio::time::{Instant, sleep_until};
 
 use crate::{
     common::{
-        constant::{SHARE_DRIVE_PATH_BUF, TZ},
+        constant::{TMP_FS_PATH, TZ},
         domain::ServiceError,
         util::IdGenerator,
     },
@@ -27,7 +30,7 @@ use super::{
 };
 
 static JINJA_ENGINE: OnceLock<Environment<'static>> = OnceLock::new();
-pub struct ChromiumTab(OnceLock<(Browser, Arc<Tab>)>);
+pub struct ChromiumTab(OnceLock<(Browser, Arc<Tab>, PathBuf)>);
 static CHROMIUM_TAB: ChromiumTab = ChromiumTab(OnceLock::new());
 
 pub async fn init() -> Result<(), Box<dyn Error>> {
@@ -147,12 +150,45 @@ fn round(value: f64) -> String {
 }
 pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     match CHROMIUM_TAB.get() {
-        Some((_, tab)) => Ok(tab.clone()),
+        Some((_, tab, _)) => Ok(tab.clone()),
         None => {
-            let user_data_dir = OsString::from(format!(
-                "--user-data-dir={}",
-                SHARE_DRIVE_PATH_BUF.display()
-            ));
+            let data_dir = TMP_FS_PATH.join(IdGenerator.get());
+            std::fs::create_dir_all(&data_dir)?;
+
+            let handle = tokio::runtime::Handle::current();
+
+            let cleanup_dir = data_dir.clone();
+            handle.spawn(async move {
+                loop {
+                    tracing::info!("starting next clearing procedure of the chrome user data dir");
+                    let now = Local::now();
+                    let tomorrow_midnight = (now + chrono::Duration::days(1))
+                        .date_naive()
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap()
+                        .and_local_timezone(Local)
+                        .unwrap();
+
+                    let duration_until_midnight = (tomorrow_midnight - now).to_std().unwrap();
+
+                    let sleep_time = Instant::now() + duration_until_midnight;
+
+                    tracing::info!(
+                        "chromium --user-data-dir (tmpfs): next clearing schedule is {tomorrow_midnight}, data_dir: {cleanup_dir:?}",
+                    );
+                    sleep_until(sleep_time).await;
+                    tracing::info!(
+                        "clearing the chromium user data dir, this might be messy! {:?}",
+                        tokio::fs::remove_dir_all(&cleanup_dir).await
+                    );
+                    tracing::info!(
+                        "recreate dir {:?}",
+                        tokio::fs::create_dir_all(&cleanup_dir).await
+                    );
+                }
+            });
+
+            let user_data_dir = OsString::from(format!("--user-data-dir={}", data_dir.display()));
             let sandboxed = std::env::var(CHROMIUM_SANDBOXED)
                 .map(|v| v.parse::<bool>().unwrap_or(false))
                 .unwrap_or(false);
@@ -165,7 +201,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                     OsStr::new("--no-first-run"),
                     //  OsStr::new("--disable-setuid-sandbox"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
-                    //  OsStr::new("--default-background-color=00000000"),
+                    OsStr::new("--default-background-color=00000000"),
                     OsStr::new("--disable-dev-shm-usage"),
                     &user_data_dir,
                 ])
@@ -210,7 +246,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
             tracing::info!("we got a tab");
 
             CHROMIUM_TAB
-                .set((browser, tab.clone()))
+                .set((browser, tab.clone(), data_dir))
                 .map_err(|_tab| "could not setup chromium tab".to_string())?;
             Ok(tab)
         }
@@ -218,7 +254,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
 }
 
 impl Deref for ChromiumTab {
-    type Target = OnceLock<(headless_chrome::Browser, Arc<headless_chrome::Tab>)>;
+    type Target = OnceLock<(headless_chrome::Browser, Arc<headless_chrome::Tab>, PathBuf)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -226,10 +262,14 @@ impl Deref for ChromiumTab {
 }
 impl Drop for ChromiumTab {
     fn drop(&mut self) {
-        if let Some((browser, tab)) = self.0.take() {
+        if let Some((browser, tab, pb)) = self.0.take() {
             tracing::info!("closing tab result: {:?}", tab.close(true));
             drop(tab);
             drop(browser);
+            tracing::info!(
+                "deleting user data folder (chromium) {:?}",
+                std::fs::remove_dir_all(pb)
+            );
         }
     }
 }
