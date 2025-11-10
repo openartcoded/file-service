@@ -297,9 +297,13 @@ impl FileService {
             .await
             .map_err(ServiceError::new)?;
 
+        tracing::info!(
+            "we now try to make a thumb,without_thumbnail:{without_thumbnail}, final_file: {final_file:?}, checking condition..."
+        );
         if let Some((internal_name, final_file_path)) = final_file
             && !without_thumbnail
         {
+            tracing::info!("condition matches! making a thumb");
             let mut upl = upl.clone();
             let that = self.clone();
             // make thumb generation asynchronous
@@ -312,6 +316,7 @@ impl FileService {
                         tracing::error!("could not generate thumbnail for upl {upl:?}, {err}")
                     }
                     Ok(o) => {
+                        tracing::info!("new thumb: {o:?}");
                         upl.thumbnail_id = o;
                         if let Err(err) = that
                             .store

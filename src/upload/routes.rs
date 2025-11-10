@@ -311,7 +311,7 @@ pub async fn upload_update(
     axum::extract::Query(UploadFileRequestUriParams {
         correlation_id,
         is_public,
-        ..
+        without_thumbnail,
     }): axum::extract::Query<UploadFileRequestUriParams>,
     mut multipart: Multipart,
 ) -> axum::response::Result<axum::response::Response> {
@@ -370,7 +370,13 @@ pub async fn upload_update(
 
     tracing::debug!("Length of `{}` is {} bytes", file_name, len);
     let file_service = FileService { store: repository };
-    let upl = file_service.upload(fu, Some(&temp_file_path), true).await?;
+    let upl = file_service
+        .upload(
+            fu,
+            Some(&temp_file_path),
+            without_thumbnail.unwrap_or(false),
+        )
+        .await?;
     tokio::spawn(async move {
         tracing::info!("deleting temp upload folder");
         if let Err(e) = tokio::fs::remove_dir_all(&tmp_fs_folder).await {
