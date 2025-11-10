@@ -5,26 +5,26 @@ RUN apk add --no-cache tzdata
 RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
 RUN apk add --no-cache ca-certificates libreoffice chromium
 RUN apk add --no-cache \
-       --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
-       --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
-       gperftools-dev
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
+    gperftools-dev
 
 ## INITIAL BUILDER
 FROM rust:1.91-alpine3.22 AS builder
 RUN apk add --no-cache openssl-dev curl build-base cmake pkgconfig musl-dev openssl-libs-static perl \
     && apk add --no-cache \
-       --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
-       --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
-       gperftools-dev
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
+    gperftools-dev
 
 ## CACHE LAYER
 FROM builder AS cache
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN mkdir src && echo "fn main() {println!(\"hello world\");}" > src/main.rs
 ENV RUSTFLAGS="-C link-args=-ltcmalloc"
 RUN cargo build --release 
-RUN rm -rf src
+RUN rm -rf src target/release/file-service target/release/deps/file_service*
 
 ## BUILD LAYER
 FROM cache AS build
