@@ -8,6 +8,7 @@ RUN apk add --no-cache \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
     gperftools-dev
+RUN apk add --no-cache nss freetype harfbuzz ttf-freefont
 
 ## INITIAL BUILDER
 FROM rust:1.91-alpine3.22 AS builder

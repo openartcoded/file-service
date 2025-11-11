@@ -271,9 +271,17 @@ pub async fn make_thumb(
         .await
         .map_err(ServiceError::new)?;
     if let Some(mut upl) = upl
-        && upl.thumbnail_id.is_none()
         && !(matches!(upl.thumb, Some(true)))
     {
+        if let Some(thumbnail_id) = upl.thumbnail_id.take() {
+            let file_service = file_service.clone();
+            tokio::task::spawn(async move {
+                tracing::warn!("deleting old thumb {thumbnail_id}");
+                if let Err(e) = file_service.delete_by_id(&id).await {
+                    tracing::error!("could not delete old thumb {thumbnail_id}: {e}");
+                }
+            });
+        }
         let file_name = file_service.get_filename_on_disk(&upl);
         let thumb = file_service
             .make_thumbnail(

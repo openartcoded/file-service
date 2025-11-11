@@ -84,7 +84,14 @@ impl FileService {
             fn chrome_proc(temp_file_path: &Path) -> Result<Vec<u8>, ServiceError> {
                 // first try with chromium as it seems faster
                 let tab = get_chromium_tab().map_err(ServiceError::new)?;
-                let file_url = format!("file://{}", temp_file_path.display());
+                let file_url = format!(
+                    "file://{}",
+                    temp_file_path
+                        .canonicalize()
+                        .map_err(ServiceError::new)?
+                        .display()
+                );
+                tracing::info!("file url: {file_url}");
                 tab.navigate_to(&file_url).map_err(ServiceError::new)?;
                 tab.wait_until_navigated().map_err(ServiceError::new)?;
 
