@@ -31,8 +31,6 @@ use crate::{
 
 use super::domain::FileUploadV2;
 
-static GET_VIEW_PORT_JS_SCRIPT: &str = include_str!("get_viewport.js");
-
 #[derive(Clone)]
 pub struct FileService {
     pub store: StoreRepository<FileUploadV2>,
@@ -89,15 +87,21 @@ impl FileService {
                 let file_url = format!("file://{}", temp_file_path.display());
                 tab.navigate_to(&file_url).map_err(ServiceError::new)?;
                 tab.wait_until_navigated().map_err(ServiceError::new)?;
-                let viewport = tab
-                    .evaluate(GET_VIEW_PORT_JS_SCRIPT, true)
-                    .map_err(ServiceError::new)?
-                    .value
-                    .ok_or_else(|| ServiceError::new("Failed to get viewport dimensions"))?;
 
-                // Parse viewport dimensions
-                let clip = serde_json::from_value::<Viewport>(viewport)
-                    .map_err(|e| ServiceError::new(format!("Failed to parse viewport: {}", e)))?;
+                let first_page_height: f64 = tab
+                    .evaluate("document.querySelector('body').scrollHeight", false)
+                    .map_err(|e| ServiceError::new(e.to_string()))?
+                    .value
+                    .ok_or_else(|| ServiceError::new("missing height viewport"))?
+                    .as_f64()
+                    .ok_or_else(|| ServiceError::new("could not parse  height viewport"))?;
+                let first_page_width: f64 = tab
+                    .evaluate("document.querySelector('body').scrollWidth", false)
+                    .map_err(|e| ServiceError::new(e.to_string()))?
+                    .value
+                    .ok_or_else(|| ServiceError::new("missing width viewport"))?
+                    .as_f64()
+                    .ok_or_else(|| ServiceError::new("could not parse width viewport"))?;
 
                 // Capture screenshot with the specific viewport
                 let png_data = tab
@@ -105,10 +109,10 @@ impl FileService {
                         Page::CaptureScreenshotFormatOption::Png,
                         None,
                         Some(Page::Viewport {
-                            x: clip.x,
-                            y: clip.y,
-                            width: clip.width,
-                            height: clip.height,
+                            x: 0.,
+                            y: 0.,
+                            width: first_page_width,
+                            height: first_page_height,
                             scale: 1.0,
                         }),
                         true,
