@@ -9,8 +9,8 @@ RUN apk add --no-cache \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
     gperftools-dev
 RUN apk add --no-cache nss freetype harfbuzz ttf-freefont
-RUN apk add openjdk8-jre imagemagick ghostscript
-RUN sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml
+RUN apk add openjdk8-jre imagemagick=7.1.2.3-r0 ghostscript
+RUN sed -i 's/pattern="{GIF,JPEG,PNG,WEBP}"/pattern="{GIF,JPEG,PNG,WEBP,PDF}"/' /etc/ImageMagick-7/policy.xml
 
 ## INITIAL BUILDER
 FROM rust:1.91-alpine3.22 AS builder
