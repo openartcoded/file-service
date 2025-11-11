@@ -17,6 +17,7 @@ use tokio::{
 use tokio_util::io::StreamReader;
 use tracing::debug;
 
+use crate::upload::ConvertType;
 use crate::{
     common::{
         constant::{SHARE_DRIVE_PATH_BUF, THUMB_H, THUMB_W, TMP_FS_PATH},
@@ -24,7 +25,6 @@ use crate::{
         util::{IdGenerator, StoreCollection},
     },
     store::{Repository, StoreClient, StoreRepository, get_document_filter_by_maybe_object_id},
-    upload::soffice::{ConvertType, convert_to},
 };
 
 use super::domain::FileUploadV2;
@@ -88,7 +88,7 @@ impl FileService {
                     .map_err(ServiceError::new)
                     .map(|im| (upl.content_type.clone(), im))
             } else {
-                match convert_to(temp_file_path, ConvertType::Png)
+                match super::imagemagick::convert_to(temp_file_path, ConvertType::Png)
                     .await
                     .map_err(ServiceError::new)
                     .map(|bytes| {
@@ -99,11 +99,28 @@ impl FileService {
                     Ok(img) => img,
                     Err(e) => {
                         tracing::error!(
-                            "error converting file {}: {}, giving up...",
+                            "error converting file {}: {}, trying with soffice...",
                             internal_name,
                             e
                         );
-                        return Ok(None);
+                        match super::soffice::convert_to(temp_file_path, ConvertType::Png)
+                            .await
+                            .map_err(ServiceError::new)
+                            .map(|bytes| {
+                                image::load_from_memory(&bytes)
+                                    .map_err(ServiceError::new)
+                                    .map(|im| (Some(IMAGE_PNG.to_string()), im))
+                            }) {
+                            Ok(img) => img,
+                            Err(e) => {
+                                tracing::error!(
+                                    "error converting file {}: {}, giving up...",
+                                    internal_name,
+                                    e
+                                );
+                                return Ok(None);
+                            }
+                        }
                     }
                 }
             }?;

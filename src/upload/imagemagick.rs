@@ -9,28 +9,22 @@ use crate::{
 
 pub async fn convert_to(
     input_path: impl Into<PathBuf>,
-    to: ConvertType,
+    ct: ConvertType,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
+    let extension = ct.to_str();
     let input_path: PathBuf = input_path.into();
     tracing::debug!("convert file {input_path:?}");
     let input_path_str = &input_path.display().to_string();
     let temp_dir = TMP_FS_PATH.join(IdGenerator.get());
     tokio::fs::create_dir_all(&temp_dir).await?;
-    let output = Command::new("soffice")
-        .args([
-            "--headless",
-            "--convert-to",
-            to.to_str(),
-            "--outdir",
-            &temp_dir.display().to_string(),
-            input_path_str,
-        ])
+    let output = Command::new("convert")
+        .args([input_path_str, &format!("{extension}:-")])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
         .await?;
     if output.status.success() {
-        let input_path = input_path.with_extension(to.to_str());
+        let input_path = input_path.with_extension(extension);
         let input_path = input_path
             .file_name()
             .ok_or("no file name")?
