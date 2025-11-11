@@ -150,7 +150,7 @@ impl FileService {
                             Ok(img) => img,
                             Err(e) => {
                                 tracing::error!(
-                                    "error converting file {}: {}, try with chromium...",
+                                    "error converting file {}: {}, giving up...",
                                     internal_name,
                                     e
                                 );
