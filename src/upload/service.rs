@@ -1,13 +1,12 @@
 use std::{
     error::Error,
     io::{Cursor, Read, Seek, SeekFrom},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
 use axum::extract::multipart::Field;
 use futures::TryStreamExt;
-use headless_chrome::protocol::cdp::Page::{self};
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
 use mongodb::bson::{Document, doc};
@@ -25,7 +24,6 @@ use crate::{
         util::{IdGenerator, StoreCollection},
     },
     store::{Repository, StoreClient, StoreRepository, get_document_filter_by_maybe_object_id},
-    template::render::get_chromium_tab,
     upload::soffice::{ConvertType, convert_to},
 };
 
@@ -81,38 +79,6 @@ impl FileService {
         temp_file_path: &PathBuf,
     ) -> Result<Option<String>, ServiceError> {
         let (extension, thumb) = {
-            fn chrome_proc(temp_file_path: &Path) -> Result<Vec<u8>, ServiceError> {
-                // first try with chromium as it seems faster
-                let tab = get_chromium_tab().map_err(ServiceError::new)?;
-                let file_url = format!(
-                    "file://{}",
-                    temp_file_path
-                        .canonicalize()
-                        .map_err(ServiceError::new)?
-                        .display()
-                );
-                tracing::info!("file url: {file_url}");
-                tab.navigate_to(&file_url).map_err(ServiceError::new)?;
-                tab.wait_until_navigated().map_err(ServiceError::new)?;
-
-                let viewport = tab
-                    .wait_for_element("body")
-                    .map_err(ServiceError::new)?
-                    .get_box_model()
-                    .map_err(ServiceError::new)?
-                    .margin_viewport(); // Capture screenshot with the specific viewport
-                let png_data = tab
-                    .capture_screenshot(
-                        Page::CaptureScreenshotFormatOption::Png,
-                        None,
-                        Some(viewport),
-                        true,
-                    )
-                    .map_err(ServiceError::new)?;
-
-                Ok(png_data)
-            }
-
             let (ct, image) = if upl.is_supported_image() {
                 let bytes = tokio::fs::read(temp_file_path)
                     .await
@@ -122,32 +88,22 @@ impl FileService {
                     .map_err(ServiceError::new)
                     .map(|im| (upl.content_type.clone(), im))
             } else {
-                match tokio::task::block_in_place(|| chrome_proc(temp_file_path)).map(|bytes| {
-                    image::load_from_memory(&bytes)
-                        .map_err(ServiceError::new)
-                        .map(|im| (Some(IMAGE_PNG.to_string()), im))
-                }) {
+                match convert_to(temp_file_path, ConvertType::Png)
+                    .await
+                    .map_err(ServiceError::new)
+                    .map(|bytes| {
+                        image::load_from_memory(&bytes)
+                            .map_err(ServiceError::new)
+                            .map(|im| (Some(IMAGE_PNG.to_string()), im))
+                    }) {
                     Ok(img) => img,
                     Err(e) => {
-                        tracing::error!("error converting file {}: {} ", internal_name, e);
-                        match convert_to(temp_file_path, ConvertType::Png)
-                            .await
-                            .map_err(ServiceError::new)
-                            .map(|bytes| {
-                                image::load_from_memory(&bytes)
-                                    .map_err(ServiceError::new)
-                                    .map(|im| (Some(IMAGE_PNG.to_string()), im))
-                            }) {
-                            Ok(img) => img,
-                            Err(e) => {
-                                tracing::error!(
-                                    "error converting file {}: {}, giving up...",
-                                    internal_name,
-                                    e
-                                );
-                                return Ok(None);
-                            }
-                        }
+                        tracing::error!(
+                            "error converting file {}: {}, giving up...",
+                            internal_name,
+                            e
+                        );
+                        return Ok(None);
                     }
                 }
             }?;

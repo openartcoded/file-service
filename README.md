@@ -25,6 +25,7 @@ services:
 | SHARE_DRIVE_PATH              | Path to the shared drive                  | $HOME/file-service or $TMP/file-service   |
 | THUMB_HEIGHT                  | Thumbnail height                          | 300                                       |
 | THUMB_WIDTH                   | Thumbnail width                           | 300                                       |
+| CLEARING_CHROMIUM_USER_DATA_DIR                  | clearing user data dir                           | false                                      |
 | MONGO_HOST                    | MongoDB host                              | 127.0.0.1                                 |
 | MONGO_PORT                    | MongoDB port                              | 27017                                     |
 | MONGO_USERNAME                | Username for MongoDB                      | root                                      |

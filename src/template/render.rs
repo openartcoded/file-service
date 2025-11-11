@@ -9,13 +9,15 @@ use std::{
     time::Duration,
 };
 
+use chrono::Local;
 use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
 use minijinja::Environment;
 use serde::Serialize;
+use tokio::time::{Instant, sleep_until};
 
 use crate::{
     common::{
-        constant::{SHARE_DRIVE_PATH_BUF, TZ},
+        constant::{TMP_FS_PATH, TZ},
         domain::ServiceError,
         util::IdGenerator,
     },
@@ -155,15 +157,54 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     match CHROMIUM_TAB.get() {
         Some((_, tab, _)) => Ok(tab.clone()),
         None => {
-            let data_dir = SHARE_DRIVE_PATH_BUF.clone();
+            let data_dir = TMP_FS_PATH.join(IdGenerator.get());
+            std::fs::create_dir_all(&data_dir)?;
 
+            if let Some(true) = std::env::var("CLEARING_CHROMIUM_USER_DATA_DIR")
+                .map(|p| p.trim().to_lowercase().parse::<bool>().ok())
+                .iter()
+                .flatten()
+                .next()
+            {
+                let cleanup_dir = data_dir.clone();
+                let handle = tokio::runtime::Handle::current();
+                handle.spawn(async move {
+                            loop {
+                                tracing::info!("starting next clearing procedure of the chrome user data dir");
+                                let now = Local::now();
+                                let tomorrow_midnight = (now + chrono::Duration::days(1))
+                                    .date_naive()
+                                    .and_hms_opt(0, 0, 0)
+                                    .unwrap()
+                                    .and_local_timezone(Local)
+                                    .unwrap();
+
+                                let duration_until_midnight = (tomorrow_midnight - now).to_std().unwrap();
+
+                                let sleep_time = Instant::now() + duration_until_midnight;
+
+                                tracing::info!(
+                                    "chromium --user-data-dir (tmpfs): next clearing schedule is {tomorrow_midnight}, data_dir: {cleanup_dir:?}",
+                                );
+                                sleep_until(sleep_time).await;
+                                tracing::info!(
+                                    "clearing the chromium user data dir, this might be messy! {:?}",
+                                    tokio::fs::remove_dir_all(&cleanup_dir).await
+                                );
+                                tracing::info!(
+                                    "recreate dir {:?}",
+                                    tokio::fs::create_dir_all(&cleanup_dir).await
+                                );
+                            }
+                        });
+            }
             let user_data_dir = OsString::from(format!("--user-data-dir={}", data_dir.display()));
             let sandboxed = std::env::var(CHROMIUM_SANDBOXED)
                 .map(|v| v.parse::<bool>().unwrap_or(false))
                 .unwrap_or(false);
             let options = LaunchOptionsBuilder::default()
                 .sandbox(sandboxed)
-                //.fetcher_options(FetcherOptions::default().with_revision(Revision::Latest))
+                //.fetcher_options(FetcherOptions::default().with_rRevision, evision(Revision::Latest))
                 .idle_browser_timeout(Duration::MAX)
                 .args(vec![
                     OsStr::new("--disable-web-security"),
