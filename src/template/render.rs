@@ -214,6 +214,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                     //  OsStr::new("--disable-setuid-sandbox"),
                     OsStr::new("--allow-file-access-from-files"),
                     OsStr::new("--enable-local-file-accesses"),
+                    OsStr::new("--disable-pdf-tagging"),
                     OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
                     OsStr::new("--default-background-color=00000000"),
                     OsStr::new("--disable-dev-shm-usage"),
