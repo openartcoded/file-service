@@ -2,7 +2,7 @@ use std::{error::Error, path::PathBuf, process::Stdio};
 
 use tokio::process::Command;
 
-use crate::common::constant::TMP_FS_PATH;
+use crate::common::{constant::TMP_FS_PATH, util::IdGenerator};
 
 pub async fn convert_to(
     input_path: impl Into<PathBuf>,
@@ -11,14 +11,15 @@ pub async fn convert_to(
     let input_path: PathBuf = input_path.into();
     tracing::debug!("convert file {input_path:?}");
     let input_path_str = &input_path.display().to_string();
-    let temp_dir = TMP_FS_PATH.display().to_string();
+    let temp_dir = TMP_FS_PATH.join(IdGenerator.get());
+    tokio::fs::create_dir_all(&temp_dir).await?;
     let output = Command::new("soffice")
         .args([
             "--headless",
             "--convert-to",
             to.to_str(),
             "--outdir",
-            &temp_dir,
+            &temp_dir.display().to_string(),
             input_path_str,
         ])
         .stdout(Stdio::piped())
@@ -31,10 +32,10 @@ pub async fn convert_to(
             .file_name()
             .ok_or("no file name")?
             .to_string_lossy();
-        let path = format!("{temp_dir}/{input_path}");
+        let path = format!("{}/{input_path}", temp_dir.display());
         let bytes = tokio::fs::read(&path).await?;
         tokio::spawn(async move {
-            if let Err(e) = tokio::fs::remove_file(&path).await {
+            if let Err(e) = tokio::fs::remove_dir_all(&temp_dir).await {
                 tracing::error!("could not remove temp thumb {e}");
             }
         });
