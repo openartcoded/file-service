@@ -9,15 +9,13 @@ use std::{
     time::Duration,
 };
 
-use chrono::Local;
-use headless_chrome::{Browser, FetcherOptions, LaunchOptionsBuilder, Revision, Tab};
+use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
 use minijinja::Environment;
 use serde::Serialize;
-use tokio::time::{Instant, sleep_until};
 
 use crate::{
     common::{
-        constant::{SHARE_DRIVE_PATH_BUF, TMP_FS_PATH, TZ},
+        constant::{SHARE_DRIVE_PATH_BUF, TZ},
         domain::ServiceError,
         util::IdGenerator,
     },
@@ -165,7 +163,7 @@ pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
                 .unwrap_or(false);
             let options = LaunchOptionsBuilder::default()
                 .sandbox(sandboxed)
-                .fetcher_options(FetcherOptions::default().with_revision(Revision::Latest))
+                //.fetcher_options(FetcherOptions::default().with_revision(Revision::Latest))
                 .idle_browser_timeout(Duration::MAX)
                 .args(vec![
                     OsStr::new("--disable-web-security"),
