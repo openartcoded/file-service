@@ -22,6 +22,7 @@ pub async fn convert_to(
             input_path_str,
         ])
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .output()
         .await?;
     if output.status.success() {
@@ -39,7 +40,12 @@ pub async fn convert_to(
         });
         Ok(bytes)
     } else {
-        Err(format!("error {}", String::from_utf8_lossy(&output.stdout)).into())
+        Err(format!(
+            "error! stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        )
+        .into())
     }
 }
 

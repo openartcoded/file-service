@@ -7,7 +7,7 @@ use std::{
 use async_zip::{Compression, ZipEntryBuilder, base::write::ZipFileWriter};
 use axum::extract::multipart::Field;
 use futures::TryStreamExt;
-use headless_chrome::protocol::cdp::Page::{self, Viewport};
+use headless_chrome::protocol::cdp::Page::{self};
 use image::{EncodableLayout, ImageFormat};
 use mime_guess::mime::IMAGE_PNG;
 use mongodb::bson::{Document, doc};
@@ -81,40 +81,24 @@ impl FileService {
         temp_file_path: &PathBuf,
     ) -> Result<Option<String>, ServiceError> {
         let (extension, thumb) = {
-            async fn chrome_proc(temp_file_path: &Path) -> Result<Vec<u8>, ServiceError> {
+            fn chrome_proc(temp_file_path: &Path) -> Result<Vec<u8>, ServiceError> {
                 // first try with chromium as it seems faster
                 let tab = get_chromium_tab().map_err(ServiceError::new)?;
                 let file_url = format!("file://{}", temp_file_path.display());
                 tab.navigate_to(&file_url).map_err(ServiceError::new)?;
                 tab.wait_until_navigated().map_err(ServiceError::new)?;
 
-                let first_page_height: f64 = tab
-                    .evaluate("document.querySelector('body').scrollHeight", false)
-                    .map_err(|e| ServiceError::new(e.to_string()))?
-                    .value
-                    .ok_or_else(|| ServiceError::new("missing height viewport"))?
-                    .as_f64()
-                    .ok_or_else(|| ServiceError::new("could not parse  height viewport"))?;
-                let first_page_width: f64 = tab
-                    .evaluate("document.querySelector('body').scrollWidth", false)
-                    .map_err(|e| ServiceError::new(e.to_string()))?
-                    .value
-                    .ok_or_else(|| ServiceError::new("missing width viewport"))?
-                    .as_f64()
-                    .ok_or_else(|| ServiceError::new("could not parse width viewport"))?;
-
-                // Capture screenshot with the specific viewport
+                let viewport = tab
+                    .wait_for_element("body")
+                    .map_err(ServiceError::new)?
+                    .get_box_model()
+                    .map_err(ServiceError::new)?
+                    .margin_viewport(); // Capture screenshot with the specific viewport
                 let png_data = tab
                     .capture_screenshot(
                         Page::CaptureScreenshotFormatOption::Png,
                         None,
-                        Some(Page::Viewport {
-                            x: 0.,
-                            y: 0.,
-                            width: first_page_width,
-                            height: first_page_height,
-                            scale: 1.0,
-                        }),
+                        Some(viewport),
                         true,
                     )
                     .map_err(ServiceError::new)?;
@@ -131,7 +115,7 @@ impl FileService {
                     .map_err(ServiceError::new)
                     .map(|im| (upl.content_type.clone(), im))
             } else {
-                match chrome_proc(temp_file_path).await.map(|bytes| {
+                match tokio::task::block_in_place(|| chrome_proc(temp_file_path)).map(|bytes| {
                     image::load_from_memory(&bytes)
                         .map_err(ServiceError::new)
                         .map(|im| (Some(IMAGE_PNG.to_string()), im))

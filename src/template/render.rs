@@ -101,7 +101,6 @@ async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8
 
     tracing::debug!("{}", String::from_utf8_lossy(templ));
     let html = engine.render_str(std::str::from_utf8(templ)?, templ_ctx)?;
-    let tab = get_chromium_tab()?;
 
     let temp_html_file_path = dirs::home_dir()
         .unwrap_or_else(std::env::temp_dir)
@@ -113,10 +112,16 @@ async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8
     tracing::debug!("{page}");
 
     tracing::info!("generate pdf from html page {page}");
-    let pdf = tab
-        .navigate_to(&page)?
-        .wait_until_navigated()?
-        .print_to_pdf(Default::default())?;
+    let pdf = tokio::task::block_in_place(|| {
+        let tab = get_chromium_tab().map_err(ServiceError::new)?;
+
+        tab.navigate_to(&page)
+            .map_err(ServiceError::new)?
+            .wait_until_navigated()
+            .map_err(ServiceError::new)?
+            .print_to_pdf(Default::default())
+            .map_err(ServiceError::new)
+    })?;
     tokio::fs::remove_file(temp_html_file_path).await?;
 
     Ok(pdf)
