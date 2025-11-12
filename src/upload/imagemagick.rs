@@ -17,26 +17,14 @@ pub async fn convert_to(
     let input_path_str = &input_path.display().to_string();
     let temp_dir = TMP_FS_PATH.join(IdGenerator.get());
     tokio::fs::create_dir_all(&temp_dir).await?;
-    let output = Command::new("convert")
+    let output = Command::new("magick")
         .args([input_path_str, &format!("{extension}:-")])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
         .await?;
-    if output.status.success() {
-        let input_path = input_path.with_extension(extension);
-        let input_path = input_path
-            .file_name()
-            .ok_or("no file name")?
-            .to_string_lossy();
-        let path = format!("{}/{input_path}", temp_dir.display());
-        let bytes = tokio::fs::read(&path).await?;
-        tokio::spawn(async move {
-            if let Err(e) = tokio::fs::remove_dir_all(&temp_dir).await {
-                tracing::error!("could not remove temp thumb {e}");
-            }
-        });
-        Ok(bytes)
+    if output.status.success() && !output.stdout.is_empty() {
+        Ok(output.stdout)
     } else {
         Err(format!(
             "error! stdout: {}\nstderr: {}",
