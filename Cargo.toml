@@ -6,15 +6,15 @@ edition = "2024"
 [dependencies]
 async-trait = "0.1.89"
 async_zip = { version = "0.0.18", features = ["deflate", "tokio", "tokio-fs"] }
-axum = { version = "0.8.6", features = ["multipart"] }
-axum-extra = { version = "0.12.1", features = ["query", "typed-header"] }
+axum = { version = "0.8.8", features = ["multipart"] }
+axum-extra = { version = "0.12.5", features = ["query", "typed-header"] }
 base64 = "0.22.1"
-bson = { version = "3.0.0", features = ["serde"] }
+bson = { version = "3.1.0", features = ["serde"] }
 chrono = { version = "0.4.42", features = ["serde"] }
 dirs = "6.0.0"
 futures = "0.3.31"
 futures-util = "0.3.31"
-headless_chrome = { version = "1.0.18" }
+headless_chrome = { version = "1.0.20" }
 http-body-util = "0.1.3"
 image = { version = "0.25", default-features = false, features = [
     "png",
@@ -22,37 +22,37 @@ image = { version = "0.25", default-features = false, features = [
     "gif",
 ] }
 mime_guess = "2.0.5"
-minijinja = { version = "2.12.0", default-features = false, features = [
+minijinja = { version = "2.14.0", default-features = false, features = [
     "builtins",
     "macros",
     "serde",
     "speedups",
     "urlencode",
 ] }
-minijinja-contrib = { version = "2.12.0", features = [
+minijinja-contrib = { version = "2.14.0", features = [
     "datetime",
     "timezone",
     "time-tz",
     "time",
 ] }
-mongodb = "3.3.0"
+mongodb = "3.4.1"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
+serde_json = "1.0.148"
 time = { version = "0.3.44", features = [
     "formatting",
     "local-offset",
     "macros",
 ] }
 tokio = { version = "1.48.0", features = ["macros", "sync", "fs", "time"] }
-tokio-util = "0.7.17"
+tokio-util = {version = "0.7.17", features=["io"]}
 #tower-http = { version = "0.6.6", features = [
 #    "cors",
 #    "limit",
 #    "trace",
 #    "redirect",
 #] }
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.20", features = [
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = [
     "env-filter",
     "time",
     "local-time",
@@ -61,7 +61,7 @@ utoipa = { version = "5.4.0", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", default-features = false, features = [
     "axum",
 ] }
-uuid = { version = "1.18.1", features = ["v7"] }
+uuid = { version = "1.19.0", features = ["v7"] }
 
 [profile.release]
 lto = "thin"

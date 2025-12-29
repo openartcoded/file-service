@@ -12,7 +12,7 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
-            runner: [self-hosted, linux, arm64]
+            runner: ubuntu-latest
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up QEMU
