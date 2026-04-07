@@ -742,7 +742,7 @@ dependencies = [
 
 [[package]]
 name = "file-service"
-version = "2026.1.1"
+version = "2026.1.2"
 dependencies = [
  "async-trait",
  "async_zip",
