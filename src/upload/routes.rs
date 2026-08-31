@@ -426,7 +426,7 @@ pub async fn upload(
                     .first_raw()
                     .map(|ct| ct.into())
             }),
-            correlation_id: query.correlation_id.take(),
+            correlation_id: query.correlation_id.clone(),
             thumb: Some(false),
             extension: Path::new(&file_name)
                 .extension()
