@@ -1,6 +1,6 @@
 [package]
 name = "file-service"
-version = "2026.1.6"
+version = "2026.2.0"
 edition = "2024"
 
 [dependencies]

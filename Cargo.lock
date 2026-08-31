@@ -854,7 +854,7 @@ dependencies = [
 
 [[package]]
 name = "file-service"
-version = "2026.1.6"
+version = "2026.2.0"
 dependencies = [
  "async-trait",
  "async_zip",
