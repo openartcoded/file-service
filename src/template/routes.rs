@@ -80,7 +80,7 @@ pub async fn render(
             let body = axum::body::Body::from_stream(stream);
             let content_header = (
                 header::CONTENT_DISPOSITION,
-                format!(r#"attachment; filename="{}{extension}""#, &req.file_name),
+                format!(r#"attachment; filename="{}{extension}""#, req.file_name),
             );
 
             let content_type = (header::CONTENT_TYPE, ct.to_string());

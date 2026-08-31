@@ -141,11 +141,11 @@ pub async fn download(
             let body = axum::body::Body::from_stream(stream);
 
             let content_header = if file.is_image() {
-                (header::CONTENT_LENGTH, format!("{}", &file.size))
+                (header::CONTENT_LENGTH, format!("{}", file.size))
             } else {
                 (
                     header::CONTENT_DISPOSITION,
-                    format!(r#"attachment; filename="{}""#, &file.original_filename),
+                    format!(r#"attachment; filename="{}""#, file.original_filename),
                 )
             };
 
@@ -406,7 +406,7 @@ pub async fn upload_update(
 )]
 pub async fn upload(
     State(FileRouterState { client, collection }): State<FileRouterState>,
-    Query(mut query): Query<UploadFileRequestUriParams>,
+    Query(query): Query<UploadFileRequestUriParams>,
     mut multipart: Multipart,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Upload route entered!");
