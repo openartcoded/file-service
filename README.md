@@ -35,6 +35,8 @@ services:
 | TEMPL_DEFAULT_DATETIME_FORMAT | Default datetime format for templates     | "[day]/[month]/[year] [hour]:[minute]"    |
 | TEMPL_DEFAULT_DATE_FORMAT     | Default date format for templates         | "[day]/[month]/[year]"                    |
 | CHROMIUM_SANDBOXED            | Enable Chromium sandboxing                | false                                     |
+| PDF_SCALE                     | Scale of the html printed to pdf (0.1-2)  | 1                                         |
+| PDF_MEDIA                     | CSS media type used to print (empty: print) | screen                                  |
 
 ### Generate openapi client
 
@@ -49,6 +51,15 @@ npm install @openapitools/openapi-generator-cli -g
 ```
 openapi-generator-cli generate -i file-service/openapi.json -g java -o file-service-java-client
 ```
+
+The client version is the `info.version` of the spec (`version` in the `#[openapi(info(...))]` of `src/main.rs`): bump it
+when the api changes, then release the client from its repository.
+
+### Pdf rendering
+
+Html templates are printed on A4 with 10mm margins and backgrounds, with the `screen` css media (same defaults as the
+backend). A `@page` rule in the template (size, margin) wins over these defaults. Renderings are serialized: the
+service drives a single chromium tab.
 
 ### dev
 

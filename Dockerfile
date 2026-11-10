@@ -1,5 +1,5 @@
 ## RUNTIME
-FROM alpine:3.22 AS runtime
+FROM alpine:3.23 AS runtime
 
 RUN apk add --no-cache tzdata
 RUN ln -s /usr/share/zoneinfo/Europe/Brussels /etc/localtime
@@ -9,11 +9,12 @@ RUN apk add --no-cache \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
     gperftools-dev
 RUN apk add --no-cache nss freetype harfbuzz ttf-freefont
-RUN apk add --no-cache openjdk8-jre imagemagick=7.1.2.15-r0 ghostscript
+# no exact version pin: alpine drops old package versions from its mirrors, which breaks the build
+RUN apk add --no-cache openjdk8-jre imagemagick ghostscript
 RUN sed -i 's/pattern="{GIF,JPEG,PNG,WEBP}"/pattern="{GIF,JPEG,PNG,WEBP,PDF}"/' /etc/ImageMagick-7/policy.xml
 
 ## INITIAL BUILDER
-FROM rust:1.97-alpine3.22 AS builder
+FROM rust:1.99-alpine3.23 AS builder
 RUN apk add --no-cache openssl-dev curl build-base cmake pkgconfig musl-dev openssl-libs-static perl \
     && apk add --no-cache \
     --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \

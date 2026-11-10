@@ -8,16 +8,19 @@ on:
       - "chore/**"
       - "feature/**"
 
+# a new push on the branch replaces the build in progress
+concurrency:
+  group: branch-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -25,10 +28,13 @@ jobs:
         id: branch_name
         run: echo "branch_name=${GITHUB_REF##*/}" | sed 's/\//-/g' >> $GITHUB_ENV
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           push: true
-          platforms: linux/amd64 #,linux/arm64
+          platforms: linux/amd64
           tags: nbittich/file-service:feature-${{ env.branch_name }}
-          cache-from: type=registry,ref=nbittich/file-service:buildcache
+          # starts from the main amd64 cache (dependencies already built), writes to its own cache
+          cache-from: |
+            type=registry,ref=nbittich/file-service:buildcacheamd64
+            type=registry,ref=nbittich/file-service:buildcache
           cache-to: type=registry,ref=nbittich/file-service:buildcache,mode=max

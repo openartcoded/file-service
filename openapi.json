@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.13"
+    "version": "0.14"
   },
   "paths": {
     "/api/v1/template": {
@@ -685,7 +685,8 @@
         "enum": [
           "INVOICE",
           "PEPPOL",
-          "C_V"
+          "CV",
+          "TIMESHEET"
         ]
       },
       "DownloadBulkRequestUriParams": {

@@ -1,3 +1,8 @@
 pub const TEMPL_DEFAULT_DATETIME_FORMAT: &str = "TEMPL_DEFAULT_DATETIME_FORMAT";
 pub const TEMPL_DEFAULT_DATE_FORMAT: &str = "TEMPL_DEFAULT_DATE_FORMAT";
 pub const CHROMIUM_SANDBOXED: &str = "CHROMIUM_SANDBOXED";
+pub const PDF_SCALE: &str = "PDF_SCALE";
+pub const PDF_MEDIA: &str = "PDF_MEDIA";
+pub const A4_WIDTH_MM: f64 = 210.;
+pub const A4_HEIGHT_MM: f64 = 297.;
+pub const PDF_MARGIN_MM: f64 = 10.;

@@ -5,12 +5,15 @@ use std::{
     fmt::Debug,
     ops::Deref,
     path::PathBuf,
-    sync::{Arc, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
     time::Duration,
 };
 
 use chrono::Local;
-use headless_chrome::{Browser, LaunchOptionsBuilder, Tab};
+use headless_chrome::{
+    Browser, LaunchOptionsBuilder, Tab, protocol::cdp::Emulation::SetEmulatedMedia,
+    types::PrintToPdfOptions,
+};
 use minijinja::Environment;
 use serde::Serialize;
 use tokio::time::{Instant, sleep_until};
@@ -25,13 +28,17 @@ use crate::{
 };
 
 use super::{
-    constant::{CHROMIUM_SANDBOXED, TEMPL_DEFAULT_DATE_FORMAT, TEMPL_DEFAULT_DATETIME_FORMAT},
+    constant::{
+        A4_HEIGHT_MM, A4_WIDTH_MM, CHROMIUM_SANDBOXED, PDF_MARGIN_MM, PDF_MEDIA, PDF_SCALE,
+        TEMPL_DEFAULT_DATE_FORMAT, TEMPL_DEFAULT_DATETIME_FORMAT,
+    },
     domain::{TemplateType, TemplateV2},
 };
 
 static JINJA_ENGINE: OnceLock<Environment<'static>> = OnceLock::new();
 pub struct ChromiumTab(OnceLock<(Browser, Arc<Tab>, PathBuf)>);
 static CHROMIUM_TAB: ChromiumTab = ChromiumTab(OnceLock::new());
+static RENDER_LOCK: Mutex<()> = Mutex::new(());
 
 pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja...");
@@ -106,25 +113,75 @@ async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8
         .unwrap_or_else(std::env::temp_dir)
         .join(format!("{}.html", IdGenerator.get()));
     tracing::debug!("{temp_html_file_path:?}");
-    tokio::fs::File::create(&temp_html_file_path).await?;
     tokio::fs::write(&temp_html_file_path, html).await?;
     let page = format!("file://{}", temp_html_file_path.display());
     tracing::debug!("{page}");
 
     tracing::info!("generate pdf from html page {page}");
     let pdf = tokio::task::block_in_place(|| {
+        // one chromium tab shared by every request: one rendering at a time, otherwise
+        // a navigation can replace the page another request is printing
+        let _guard = RENDER_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tab = get_chromium_tab().map_err(ServiceError::new)?;
+        if let Some(media) = pdf_media() {
+            tab.call_method(SetEmulatedMedia {
+                media: Some(media),
+                features: None,
+            })
+            .map_err(ServiceError::new)?;
+        }
 
         tab.navigate_to(&page)
             .map_err(ServiceError::new)?
             .wait_until_navigated()
             .map_err(ServiceError::new)?
-            .print_to_pdf(Default::default())
+            .print_to_pdf(Some(pdf_options()))
             .map_err(ServiceError::new)
-    })?;
-    tokio::fs::remove_file(temp_html_file_path).await?;
+    });
+    // removed whatever the outcome
+    if let Err(e) = tokio::fs::remove_file(&temp_html_file_path).await {
+        tracing::warn!("could not remove {temp_html_file_path:?}: {e}");
+    }
 
-    Ok(pdf)
+    Ok(pdf?)
+}
+
+/// A4, 10mm margins, backgrounds printed. Same defaults as the backend (PdfToolBox), so a
+/// template looks the same whichever renders it. An @page rule (size, margin) in the template wins.
+fn pdf_options() -> PrintToPdfOptions {
+    const MM_PER_INCH: f64 = 25.4;
+    let margin = PDF_MARGIN_MM / MM_PER_INCH;
+    PrintToPdfOptions {
+        paper_width: Some(A4_WIDTH_MM / MM_PER_INCH),
+        paper_height: Some(A4_HEIGHT_MM / MM_PER_INCH),
+        margin_top: Some(margin),
+        margin_bottom: Some(margin),
+        margin_left: Some(margin),
+        margin_right: Some(margin),
+        print_background: Some(true),
+        prefer_css_page_size: Some(true),
+        scale: Some(pdf_scale()),
+        ..Default::default()
+    }
+}
+
+/// PDF_SCALE (0.1 - 2, default 1)
+fn pdf_scale() -> f64 {
+    var(PDF_SCALE)
+        .ok()
+        .and_then(|s| s.trim().parse::<f64>().ok())
+        .filter(|s| (0.1..=2.0).contains(s))
+        .unwrap_or(1.0)
+}
+
+/// PDF_MEDIA: css media type used to print (default "screen", like the backend; empty: chromium's
+/// default, "print")
+fn pdf_media() -> Option<String> {
+    let media = var(PDF_MEDIA).unwrap_or_else(|_| "screen".to_string());
+    let media = media.trim();
+    (!media.is_empty()).then(|| media.to_string())
 }
 
 fn get_jinja_engine<'a>() -> &'a Environment<'static> {

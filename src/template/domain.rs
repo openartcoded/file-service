@@ -42,14 +42,17 @@ pub enum TemplateType {
 pub enum Context {
     Invoice,
     Peppol,
-    CV,
+    // not `CV`: serde would name it "CV" but utoipa "C_V", and the generated clients would send "C_V"
+    Cv,
+    Timesheet,
 }
 impl Display for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Context::Invoice => write!(f, "INVOICE"),
-            Context::CV => write!(f, "CV"),
+            Context::Cv => write!(f, "CV"),
             Context::Peppol => write!(f, "PEPPOL"),
+            Context::Timesheet => write!(f, "TIMESHEET"),
         }
     }
 }
