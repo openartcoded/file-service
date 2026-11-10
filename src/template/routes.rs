@@ -7,7 +7,6 @@ use axum::{
     response::{AppendHeaders, IntoResponse},
 };
 use axum_extra::headers::ContentType;
-use mime_guess::mime::{APPLICATION_PDF, TEXT_XML};
 
 use mongodb::{bson::doc, options::FindOneAndReplaceOptions};
 use serde_json::json;
@@ -49,12 +48,15 @@ pub fn make_state(client: StoreClient) -> TemplRouterState {
 )]
 pub async fn render(
     State(file_router_state): State<FileRouterState>,
-    State(TemplRouterState { collection, client }): State<TemplRouterState>,
+    State(templ_router_state): State<TemplRouterState>,
     Json(req): Json<RenderRequest>,
 ) -> axum::response::Result<axum::response::Response> {
     tracing::debug!("Template render route entered!");
-    let repository: StoreRepository<TemplateV2> =
-        StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
+    let repository: StoreRepository<TemplateV2> = StoreRepository::get_repository(
+        &templ_router_state.client,
+        &templ_router_state.collection.0,
+        &DEFAULT_TENANT,
+    );
     match repository.find_by_id(&req.template_id).await {
         Ok(Some(tpl)) => {
             if tpl.template_context != req.template_context {
@@ -64,30 +66,72 @@ pub async fn render(
                 )
                     .into_response());
             }
-            let (extension, ct) = match tpl.template_type {
-                TemplateType::Html => (".pdf", APPLICATION_PDF),
-                TemplateType::Xml => (".xml", TEXT_XML),
-            };
-            let result = super::render::render(
+            let rendered = super::render::render(
                 &tpl,
                 &req.context,
                 &file_router_state,
-                Some(DEFAULT_TENANT.to_string()),
+                &templ_router_state,
+                &DEFAULT_TENANT,
             )
             .await?;
-            let cursor = Cursor::new(result);
+            let cursor = Cursor::new(rendered.bytes);
             let stream = ReaderStream::new(cursor);
             let body = axum::body::Body::from_stream(stream);
             let content_header = (
                 header::CONTENT_DISPOSITION,
-                format!(r#"attachment; filename="{}{extension}""#, req.file_name),
+                format!(
+                    r#"attachment; filename="{}{}""#,
+                    req.file_name, rendered.extension
+                ),
             );
 
-            let content_type = (header::CONTENT_TYPE, ct.to_string());
+            let content_type = (header::CONTENT_TYPE, rendered.content_type);
 
             let headers = AppendHeaders([content_type, content_header]);
 
             Ok((StatusCode::OK, headers, body).into_response())
+        }
+        Ok(None) => Ok((
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "template not found"})),
+        )
+            .into_response()),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into()),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/template/variables/{templ_id}",
+    responses(
+        (status = 200, description = "Variables a template reads without setting them (e.g. invoice.total), sorted", body=Vec<String>)
+    ),
+    // security(("bearerAuth" = []))
+)]
+pub async fn variables(
+    State(file_router_state): State<FileRouterState>,
+    State(TemplRouterState { collection, client }): State<TemplRouterState>,
+    Path(templ_id): Path<String>,
+) -> axum::response::Result<axum::response::Response> {
+    tracing::debug!("Template variables route entered!");
+    let repository: StoreRepository<TemplateV2> =
+        StoreRepository::get_repository(&client, &collection.0, &DEFAULT_TENANT);
+    match repository.find_by_id(&templ_id).await {
+        Ok(Some(tpl)) => {
+            let (source, _) =
+                super::render::load_source(&tpl, &file_router_state, &DEFAULT_TENANT).await?;
+            match super::engine::variables(&source) {
+                Ok(variables) => Ok((StatusCode::OK, Json(variables)).into_response()),
+                Err(e) => Ok((
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(json!({"error": format!("invalid template: {e:#}")})),
+                )
+                    .into_response()),
+            }
         }
         Ok(None) => Ok((
             StatusCode::NOT_FOUND,
@@ -286,6 +330,38 @@ pub async fn upsert(
                             .into());
                     }
                 }
+                TemplateType::Text => {
+                    // the extension gives the content type of the rendering (email.html, invite.ics, sms.txt)
+                    if let Some(ct) = mime_guess::from_path(&temp_path).first()
+                        && ct.type_() != mime_guess::mime::TEXT
+                        && ct.subtype() != mime_guess::mime::XML
+                        && ct.subtype() != mime_guess::mime::JSON
+                    {
+                        return Err((
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({"error": "File content type doesn't match template type (should be text)"})),
+                        )
+                            .into());
+                    }
+                }
+            }
+            // a template that doesn't compile is refused now rather than failing at the first rendering
+            let source = match tokio::fs::read_to_string(&temp_path).await {
+                Ok(source) => source,
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({"error": format!("template is not utf-8 text: {e}")})),
+                    )
+                        .into());
+                }
+            };
+            if let Err(e) = super::engine::validate(&source) {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error": format!("invalid template: {e:#}")})),
+                )
+                    .into());
             }
             template.template_type = template_type;
             let repository: StoreRepository<FileUploadV2> = StoreRepository::get_repository(

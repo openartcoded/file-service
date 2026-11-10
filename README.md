@@ -32,8 +32,9 @@ services:
 | MONGO_PASSWORD                | Password for MongoDB                      | root                                      |
 | MONGO_CONN_TIMEOUT            | MongoDB connection timeout                | N/A                                       |
 | MONGO_ADMIN_DATABASE          | Admin database for MongoDB (used to ping) | admin                                     |
-| TEMPL_DEFAULT_DATETIME_FORMAT | Default datetime format for templates     | "[day]/[month]/[year] [hour]:[minute]"    |
-| TEMPL_DEFAULT_DATE_FORMAT     | Default date format for templates         | "[day]/[month]/[year]"                    |
+| TEMPL_DEFAULT_DATETIME_FORMAT | Default datetime format (strftime)        | "%d/%m/%Y %H:%M"                          |
+| TEMPL_DEFAULT_DATE_FORMAT     | Default date format (strftime)            | "%d/%m/%Y"                                |
+| TEMPL_FUEL                    | Max instructions per rendering (0: none)  | 50000000                                  |
 | CHROMIUM_SANDBOXED            | Enable Chromium sandboxing                | false                                     |
 | PDF_SCALE                     | Scale of the html printed to pdf (0.1-2)  | 1                                         |
 | PDF_MEDIA                     | CSS media type used to print (empty: print) | screen                                  |
@@ -54,6 +55,34 @@ openapi-generator-cli generate -i file-service/openapi.json -g java -o file-serv
 
 The client version is the `info.version` of the spec (`version` in the `#[openapi(info(...))]` of `src/main.rs`): bump it
 when the api changes, then release the client from its repository.
+
+### Templates
+
+Templates are [MiniJinja 3](https://docs.rs/minijinja) (Jinja2) templates, of three types:
+
+| Type   | Rendered as                                                                    |
+| ------ | ------------------------------------------------------------------------------ |
+| `HTML` | a pdf                                                                          |
+| `XML`  | xml (peppol)                                                                   |
+| `TEXT` | the text itself, with the content type of the file name: `email.html`, `invite.ics`, `sms.txt` |
+
+A template is compiled when it's uploaded: a syntax error is refused with its line.
+`GET /api/v1/template/variables/{id}` lists the variables a template reads (e.g. `invoice.total`).
+
+On top of the Jinja2 builtins:
+
+- `{% include "footer" %}`, `{% extends "email-layout" %}`, `{% from "macros" import x %}`: another template, by
+  id or title. Templates can share a layout, a header, macros...
+- dates: `{{ d|dateformat }}`, `{{ d|datetimeformat(format="%d/%m/%Y %H:%M", tz="Europe/Brussels") }}`, `now()`.
+  Formats are strftime ones (MiniJinja 3; MiniJinja 2 used `[day]/[month]/[year]`, update such templates)
+- numbers: `{{ 1234.5|currency }}` (`1.234,50 €`), `{{ x|number(decimals=1, thousands=" ", decimal=".") }}`,
+  `{{ x|currency(symbol="$", symbol_first=true) }}`
+- `{{ description|nl2br }}`, `{{ data|tojson }}`, `{% break %}` / `{% continue %}`, `loop.previtem` / `loop.nextitem`
+- python methods: `{{ name.upper() }}`, `{% for k, v in d.items() %}`, `{{ "{} {}".format(a, b) }}`
+- objects keep the key order of the json they come from
+- a rendering stops after `TEMPL_FUEL` instructions (runaway loops)
+
+Values are not html-escaped (as before): use `|e` where a value may contain html.
 
 ### Pdf rendering
 

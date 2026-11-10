@@ -4,7 +4,7 @@ use std::{
     ffi::{OsStr, OsString},
     fmt::Debug,
     ops::Deref,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock},
     time::Duration,
 };
@@ -14,35 +14,35 @@ use headless_chrome::{
     Browser, LaunchOptionsBuilder, Tab, protocol::cdp::Emulation::SetEmulatedMedia,
     types::PrintToPdfOptions,
 };
-use minijinja::Environment;
+use mime_guess::mime::{APPLICATION_PDF, TEXT_XML};
+use mongodb::bson::doc;
 use serde::Serialize;
 use tokio::time::{Instant, sleep_until};
 
 use crate::{
-    common::{
-        constant::{TMP_FS_PATH, TZ},
-        domain::ServiceError,
-        util::IdGenerator,
+    common::{constant::TMP_FS_PATH, domain::ServiceError, util::IdGenerator},
+    store::{Repository, StoreRepository},
+    upload::{
+        domain::{FileRouterState, FileUploadV2},
+        service::FileService,
     },
-    upload::{domain::FileRouterState, service::FileService},
 };
 
 use super::{
     constant::{
         A4_HEIGHT_MM, A4_WIDTH_MM, CHROMIUM_SANDBOXED, PDF_MARGIN_MM, PDF_MEDIA, PDF_SCALE,
-        TEMPL_DEFAULT_DATE_FORMAT, TEMPL_DEFAULT_DATETIME_FORMAT,
     },
-    domain::{TemplateType, TemplateV2},
+    domain::{TemplRouterState, TemplateType, TemplateV2},
+    engine::{self, SourceLoader},
 };
 
-static JINJA_ENGINE: OnceLock<Environment<'static>> = OnceLock::new();
 pub struct ChromiumTab(OnceLock<(Browser, Arc<Tab>, PathBuf)>);
 static CHROMIUM_TAB: ChromiumTab = ChromiumTab(OnceLock::new());
 static RENDER_LOCK: Mutex<()> = Mutex::new(());
 
 pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja...");
-    get_jinja_engine();
+    engine::new_engine(None);
     tracing::info!("init jinja done!");
     tracing::info!("init chromium...");
     tokio::task::spawn_blocking(move || {
@@ -61,15 +61,23 @@ pub async fn init() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn render<T: Serialize + Debug>(
+/// A rendered template
+pub struct Rendered {
+    pub bytes: Vec<u8>,
+    pub content_type: String,
+    /// with the dot, e.g. ".pdf"
+    pub extension: String,
+}
+
+/// The source of a template, and its file (name, content type).
+pub async fn load_source(
     templ: &TemplateV2,
-    templ_ctx: &T,
     file_router_state: &FileRouterState,
-    tenant: Option<String>,
-) -> Result<Vec<u8>, ServiceError> {
+    tenant: &str,
+) -> Result<(String, FileUploadV2), ServiceError> {
     match FileService::get_file_upload(
         &templ.file_id,
-        tenant,
+        Some(tenant.to_string()),
         &file_router_state.client,
         &file_router_state.collection,
     )
@@ -77,17 +85,11 @@ pub async fn render<T: Serialize + Debug>(
     {
         Some((repo, file)) => {
             let file_service = FileService { store: repo };
-            let templ_bytes = file_service.download_bytes(&file).await?;
-
-            let result = match templ.template_type {
-                TemplateType::Html => html_to_pdf(&templ_bytes, templ_ctx).await,
-                TemplateType::Xml => xml_to_xml(&templ_bytes, templ_ctx).await,
-            }
-            .map_err(|e| {
-                ServiceError::new(format!("cannot convert html to pdf: {e} {templ_ctx:?}"))
+            let bytes = file_service.download_bytes(&file).await?;
+            let source = String::from_utf8(bytes).map_err(|e| {
+                ServiceError::new(format!("template {} is not utf-8: {e}", templ.id))
             })?;
-
-            Ok(result)
+            Ok((source, file))
         }
         None => Err(ServiceError::new(format!(
             "templ with id {} doesn't seem to exist in db",
@@ -96,19 +98,126 @@ pub async fn render<T: Serialize + Debug>(
     }
 }
 
-async fn xml_to_xml<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8>, Box<dyn Error>> {
-    let engine = get_jinja_engine();
-
-    tracing::debug!("{}", String::from_utf8_lossy(templ));
-    let xml = engine.render_str(std::str::from_utf8(templ)?, templ_ctx)?;
-    Ok(xml.into_bytes())
+/// `{% include "x" %}` / `{% extends "x" %}` / `{% import "x" %}`: x is the id or the title of another template
+fn include_loader(
+    templ_router_state: TemplRouterState,
+    file_router_state: FileRouterState,
+    tenant: String,
+) -> SourceLoader {
+    let handle = tokio::runtime::Handle::current();
+    Arc::new(move |name: &str| {
+        // the engine is synchronous, the store is not
+        tokio::task::block_in_place(|| {
+            handle.block_on(find_source(
+                &templ_router_state,
+                &file_router_state,
+                &tenant,
+                name,
+            ))
+        })
+        .map_err(|e| {
+            minijinja::Error::new(
+                minijinja::ErrorKind::InvalidOperation,
+                format!("cannot load template {name}: {e}"),
+            )
+        })
+    })
 }
-async fn html_to_pdf<T: Serialize>(templ: &[u8], templ_ctx: &T) -> Result<Vec<u8>, Box<dyn Error>> {
-    let engine = get_jinja_engine();
 
-    tracing::debug!("{}", String::from_utf8_lossy(templ));
-    let html = engine.render_str(std::str::from_utf8(templ)?, templ_ctx)?;
+async fn find_source(
+    templ_router_state: &TemplRouterState,
+    file_router_state: &FileRouterState,
+    tenant: &str,
+    name: &str,
+) -> Result<Option<String>, ServiceError> {
+    let repository: StoreRepository<TemplateV2> = StoreRepository::get_repository(
+        &templ_router_state.client,
+        &templ_router_state.collection.0,
+        tenant,
+    );
+    let templ = match repository
+        .find_by_id(name)
+        .await
+        .map_err(ServiceError::new)?
+    {
+        Some(templ) => Some(templ),
+        None => repository
+            .find_one(Some(doc! {"title": name}))
+            .await
+            .map_err(ServiceError::new)?,
+    };
+    match templ {
+        Some(templ) => load_source(&templ, file_router_state, tenant)
+            .await
+            .map(|(source, _)| Some(source)),
+        None => Ok(None),
+    }
+}
 
+pub async fn render<T: Serialize + Debug>(
+    templ: &TemplateV2,
+    templ_ctx: &T,
+    file_router_state: &FileRouterState,
+    templ_router_state: &TemplRouterState,
+    tenant: &str,
+) -> Result<Rendered, ServiceError> {
+    let (source, file) = load_source(templ, file_router_state, tenant).await?;
+    let env = engine::new_engine(Some(include_loader(
+        templ_router_state.clone(),
+        file_router_state.clone(),
+        tenant.to_string(),
+    )));
+    // the context is not logged: it can be large (an embedded pdf) and personal
+    let output = engine::render_str(&env, &source, templ_ctx).map_err(|e| {
+        ServiceError::new(format!(
+            "cannot render template {} ({}): {e:#}",
+            templ.title, templ.id
+        ))
+    })?;
+
+    match templ.template_type {
+        TemplateType::Html => {
+            let bytes = html_to_pdf(output)
+                .await
+                .map_err(|e| ServiceError::new(format!("cannot convert html to pdf: {e}")))?;
+            Ok(Rendered {
+                bytes,
+                content_type: APPLICATION_PDF.to_string(),
+                extension: ".pdf".to_string(),
+            })
+        }
+        TemplateType::Xml => Ok(Rendered {
+            bytes: output.into_bytes(),
+            content_type: TEXT_XML.to_string(),
+            extension: ".xml".to_string(),
+        }),
+        TemplateType::Text => {
+            let (content_type, extension) = text_type(&file.original_filename);
+            Ok(Rendered {
+                bytes: output.into_bytes(),
+                content_type,
+                extension,
+            })
+        }
+    }
+}
+
+/// content type and extension of a text template, from its file name: email.html, invite.ics, sms.txt...
+fn text_type(file_name: &str) -> (String, String) {
+    let mime = mime_guess::from_path(file_name).first_or_text_plain();
+    let content_type = if mime.type_() == mime_guess::mime::TEXT {
+        format!("{mime}; charset=utf-8")
+    } else {
+        mime.to_string()
+    };
+    let extension = Path::new(file_name)
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_else(|| ".txt".to_string());
+    (content_type, extension)
+}
+
+async fn html_to_pdf(html: String) -> Result<Vec<u8>, Box<dyn Error>> {
     let temp_html_file_path = dirs::home_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join(format!("{}.html", IdGenerator.get()));
@@ -184,32 +293,6 @@ fn pdf_media() -> Option<String> {
     (!media.is_empty()).then(|| media.to_string())
 }
 
-fn get_jinja_engine<'a>() -> &'a Environment<'static> {
-    JINJA_ENGINE.get_or_init(|| {
-        let mut env = Environment::new();
-        env.add_global(
-            "TIMEZONE",
-            var(TZ).unwrap_or_else(|_| "Europe/Brussels".to_string()),
-        );
-        env.add_global(
-            "DATETIME_FORMAT",
-            var(TEMPL_DEFAULT_DATETIME_FORMAT)
-                .unwrap_or_else(|_| "[day]/[month]/[year] [hour]:[minute]".to_string()),
-        );
-        env.add_global(
-            "DATE_FORMAT",
-            var(TEMPL_DEFAULT_DATE_FORMAT).unwrap_or_else(|_| "[day]/[month]/[year]".to_string()),
-        );
-        env.add_function("round", round);
-        minijinja_contrib::add_to_environment(&mut env);
-        env
-    })
-}
-fn round(value: f64) -> String {
-    let precision = 2;
-    let formatted = format!("{:.precision$}", value, precision = precision);
-    formatted
-}
 pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
     match CHROMIUM_TAB.get() {
         Some((_, tab, _)) => Ok(tab.clone()),
@@ -349,15 +432,34 @@ impl Drop for ChromiumTab {
 mod test {
     use std::error::Error;
 
-    use chrono::{DateTime, NaiveDate, NaiveDateTime};
+    use serde_json::json;
 
-    use serde::{Deserialize, Serialize};
+    use crate::{common::util::IdGenerator, template::engine};
 
-    use crate::{common::util::IdGenerator, template::render::get_jinja_engine};
+    use super::{html_to_pdf, text_type};
 
-    use super::html_to_pdf;
+    #[test]
+    fn text_templates_get_the_content_type_of_their_file_name() {
+        assert_eq!(
+            ("text/html; charset=utf-8".to_string(), ".html".to_string()),
+            text_type("email.html")
+        );
+        assert_eq!(
+            (
+                "text/calendar; charset=utf-8".to_string(),
+                ".ics".to_string()
+            ),
+            text_type("invite.ics")
+        );
+        assert_eq!(
+            ("text/plain; charset=utf-8".to_string(), ".txt".to_string()),
+            text_type("sms")
+        );
+    }
 
-    #[tokio::test]
+    // block_in_place needs the multi-threaded runtime; run with `cargo test -- --ignored`
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "needs a chromium"]
     async fn test_html_to_pdf() -> Result<(), Box<dyn Error>> {
         let templ = r#"
         <p>Greeting, {{name}}! You are {{age}} years old!</p>
@@ -365,59 +467,24 @@ mod test {
            {% for stock in stuff.stocks %}
             <li>{{stock}}</li>
            {% endfor %}
-
         </ul>
         "#;
-        let res = html_to_pdf(
-            templ.as_bytes(),
-            &serde_json::json!({
-            "name": "Nordine",
-            "age": 35,
-            "stuff": {
-                "stocks": ["apple", "bananas", "tomatos"]
-
-            }
+        let html = engine::render_str(
+            &engine::new_engine(None),
+            templ,
+            &json!({
+                "name": "Nordine",
+                "age": 35,
+                "stuff": {"stocks": ["apple", "bananas", "tomatos"]}
             }),
-        )
-        .await?;
+        )?;
+        let res = html_to_pdf(html).await?;
+        assert!(res.starts_with(b"%PDF"));
         let p = dirs::home_dir()
             .unwrap_or_else(std::env::temp_dir)
             .join(format!("{}.pdf", IdGenerator.get()));
         tokio::fs::write(&p, res).await?;
         println!("path {p:?}");
-        Ok(())
-    }
-    #[tokio::test]
-    async fn test_date_and_time() -> Result<(), Box<dyn Error>> {
-        #[derive(Serialize, Deserialize)]
-        struct Whatever {
-            dt: NaiveDateTime,
-            d: NaiveDate,
-        }
-
-        let ctx = Whatever {
-            dt: DateTime::from_timestamp_millis(1662921288000)
-                .ok_or("no dt")?
-                .naive_utc(),
-            d: NaiveDate::from_ymd_opt(2024, 1, 1).ok_or("no nd")?,
-        };
-
-        let engine = get_jinja_engine();
-        assert_eq!(
-            "01/01/2024",
-            engine.render_str(r#"{{ d|dateformat }}"#, &ctx)?
-        );
-        assert_eq!(
-            "11/09/2022 18:34",
-            engine.render_str(r#"{{ dt|datetimeformat }}"#, &ctx)?
-        );
-
-        assert_eq!(
-            "11/09/2022 18:34:48",
-            engine
-                .render_str(r#"{{ dt|datetimeformat(format="[day]/[month]/[year] [hour]:[minute]:[second]",tz='Europe/Paris') }}"#, ctx)
-                ?
-        );
         Ok(())
     }
 }

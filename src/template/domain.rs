@@ -33,8 +33,12 @@ impl Identifiable for TemplateV2 {
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TemplateType {
+    /// rendered, then printed to a pdf
     Html,
+    /// rendered xml (e.g. peppol)
     Xml,
+    /// rendered as is (email body, sms, ics...): the content type comes from the template file name
+    Text,
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Copy, Clone, ToSchema)]
@@ -45,6 +49,10 @@ pub enum Context {
     // not `CV`: serde would name it "CV" but utoipa "C_V", and the generated clients would send "C_V"
     Cv,
     Timesheet,
+    Email,
+    Action,
+    Sms,
+    Calendar,
 }
 impl Display for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -53,6 +61,10 @@ impl Display for Context {
             Context::Cv => write!(f, "CV"),
             Context::Peppol => write!(f, "PEPPOL"),
             Context::Timesheet => write!(f, "TIMESHEET"),
+            Context::Email => write!(f, "EMAIL"),
+            Context::Action => write!(f, "ACTION"),
+            Context::Sms => write!(f, "SMS"),
+            Context::Calendar => write!(f, "CALENDAR"),
         }
     }
 }
@@ -61,6 +73,7 @@ impl Display for TemplateType {
         match self {
             TemplateType::Html => write!(f, "HTML"),
             TemplateType::Xml => write!(f, "XML"),
+            TemplateType::Text => write!(f, "TEXT"),
         }
     }
 }

@@ -52,7 +52,7 @@ impl FromRef<AppState> for TemplRouterState {
 }
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "File Api V1", title="FileApi",version="0.14", license(identifier="MIT")),
+    info(description = "File Api V1", title="FileApi",version="0.15", license(identifier="MIT")),
     components(schemas(TemplateType,OpenApiBinaryResponse,OpenApiDocUploadFormSimpleFile, FileUploadV2,FindAllQueryParams, TemplateV2,UploadFileRequestUriParams, DownloadBulkRequestUriParams,DownloadFileRequestUriParams, Context,TemplateUpsert)),
     paths(
         upload::routes::metadata,
@@ -71,6 +71,7 @@ impl FromRef<AppState> for TemplRouterState {
         template::routes::find_one,
         template::routes::delete_templ_by_id,
         template::routes::render,
+        template::routes::variables,
         template::routes::upsert
     ),
     modifiers(&SecurityAddon),
@@ -99,6 +100,7 @@ fn get_templ_router() -> Router<AppState> {
         .route("/find-one/{templ_id}", get(template::routes::find_one))
         .route("/{templ_id}", delete(template::routes::delete_templ_by_id))
         .route("/render", post(template::routes::render))
+        .route("/variables/{templ_id}", get(template::routes::variables))
         .route("/", post(template::routes::upsert))
 }
 

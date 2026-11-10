@@ -22,28 +22,45 @@ image = { version = "0.25.10", default-features = false, features = [
     "gif",
 ] }
 mime_guess = "2.0.5"
-minijinja = { version = "2.23.0", default-features = false, features = [
+# minijinja 3: serde is opt-in, the context goes through value::Serde
+minijinja = { version = "3.1.0", default-features = false, features = [
     "builtins",
     "macros",
     "serde",
     "speedups",
     "urlencode",
+    "multi_template",       # include / import / extends of other templates
+    "json",                 # tojson filter
+    "loop_controls",        # break / continue
+    "adjacent_loop_items",  # loop.previtem / loop.nextitem
+    "preserve_order",       # maps keep the order of the json they come from
+    "std_collections",
+    "fuel",                 # stops runaway templates (TEMPL_FUEL)
+    "debug",                # errors show the template line and the variables
+    "stacker",              # deep recursion (macros) without stack overflow
 ] }
-minijinja-contrib = { version = "2.23.0", features = [
-    "datetime",
+minijinja-contrib = { version = "3.1.0", features = [
+    "datetime",  # dateformat, datetimeformat, timeformat, now() (strftime formats)
     "timezone",
-    "time-tz",
-    "time",
+    "pycompat",  # python methods: "x".upper(), d.items(), "{}".format(x)...
+    "rand",      # random, randrange, lipsum
+    "wordwrap",
 ] }
 mongodb = "3.10.0"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = { version = "1.0.149", features = ["preserve_order"] }
 time = { version = "0.3.47", features = [
     "formatting",
     "local-offset",
     "macros",
 ] }
-tokio = { version = "1.54.1", features = ["macros", "sync", "fs", "time"] }
+tokio = { version = "1.54.1", features = [
+    "macros",
+    "rt-multi-thread",
+    "sync",
+    "fs",
+    "time",
+] }
 tokio-util = { version = "0.7.18", features = ["io"] }
 #tower-http = { version = "0.6.6", features = [
 #    "cors",

@@ -7,7 +7,7 @@
       "name": "",
       "identifier": "MIT"
     },
-    "version": "0.14"
+    "version": "0.15"
   },
   "paths": {
     "/api/v1/template": {
@@ -281,6 +281,39 @@
                   "type": "string",
                   "format": "binary",
                   "contentMediaType": "*/*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/template/variables/{templ_id}": {
+      "get": {
+        "tags": [
+          "template::routes"
+        ],
+        "operationId": "variables",
+        "parameters": [
+          {
+            "name": "templ_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Variables a template reads without setting them (e.g. invoice.total), sorted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -686,7 +719,11 @@
           "INVOICE",
           "PEPPOL",
           "CV",
-          "TIMESHEET"
+          "TIMESHEET",
+          "EMAIL",
+          "ACTION",
+          "SMS",
+          "CALENDAR"
         ]
       },
       "DownloadBulkRequestUriParams": {
@@ -853,7 +890,8 @@
         "type": "string",
         "enum": [
           "HTML",
-          "XML"
+          "XML",
+          "TEXT"
         ]
       },
       "TemplateUpsert": {

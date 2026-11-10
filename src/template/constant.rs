@@ -6,3 +6,4 @@ pub const PDF_MEDIA: &str = "PDF_MEDIA";
 pub const A4_WIDTH_MM: f64 = 210.;
 pub const A4_HEIGHT_MM: f64 = 297.;
 pub const PDF_MARGIN_MM: f64 = 10.;
+pub const TEMPL_FUEL: &str = "TEMPL_FUEL";
