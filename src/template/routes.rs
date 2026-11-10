@@ -378,7 +378,8 @@ pub async fn upsert(
                 len,
             )?;
 
-            let upl = file_service.upload(fu, Some(&temp_path), false).await?;
+            // no thumbnail for a template (imagemagick / soffice on html, xml, ics...)
+            let upl = file_service.upload(fu, Some(&temp_path), true).await?;
 
             template.file_id = upl.id;
         }
@@ -393,8 +394,10 @@ pub async fn upsert(
         }
     }
     template_collection
+        // the filter itself, not wrapped in {"_id": ...}: wrapped, it never matches, and the upsert inserts a
+        // document whose _id is the filter, that the replacement then tries to change (ImmutableField, code 66)
         .find_one_and_replace(
-            doc! {"_id": get_document_filter_by_maybe_object_id(&template.id)},
+            get_document_filter_by_maybe_object_id(&template.id),
             &template,
         )
         .with_options(options)
