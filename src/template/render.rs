@@ -3,9 +3,8 @@ use std::{
     error::Error,
     ffi::{OsStr, OsString},
     fmt::Debug,
-    ops::Deref,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex, MutexGuard, Once},
     time::Duration,
 };
 
@@ -36,18 +35,42 @@ use super::{
     engine::{self, SourceLoader},
 };
 
-pub struct ChromiumTab(OnceLock<(Browser, Arc<Tab>, PathBuf)>);
-static CHROMIUM_TAB: ChromiumTab = ChromiumTab(OnceLock::new());
-static RENDER_LOCK: Mutex<()> = Mutex::new(());
+/// The chromium instance used to print pdfs. One tab shared by every request, so the mutex also
+/// serializes the renderings (otherwise a navigation can replace the page another request is
+/// printing). None until the first launch, and again after a reset: the next rendering relaunches.
+static CHROMIUM: Mutex<Option<Chromium>> = Mutex::new(None);
+static CLEARING_SCHEDULED: Once = Once::new();
+
+struct Chromium {
+    browser: Browser,
+    tab: Arc<Tab>,
+    data_dir: PathBuf,
+}
+
+impl Drop for Chromium {
+    fn drop(&mut self) {
+        tracing::info!("closing tab result: {:?}", self.tab.close(true));
+        tracing::info!(
+            "chromium process {:?} closed",
+            self.browser.get_process_id()
+        );
+        tracing::info!(
+            "deleting user data folder (chromium) {:?}: {:?}",
+            self.data_dir,
+            std::fs::remove_dir_all(&self.data_dir)
+        );
+    }
+}
 
 pub async fn init() -> Result<(), Box<dyn Error>> {
     tracing::info!("init jinja...");
     engine::new_engine(None);
     tracing::info!("init jinja done!");
     tracing::info!("init chromium...");
+    schedule_clearing();
     tokio::task::spawn_blocking(move || {
         loop {
-            match get_chromium_tab() {
+            match with_chromium(|_| Ok(())) {
                 Ok(_) => {
                     tracing::info!("init chrome done!");
                     break;
@@ -228,26 +251,20 @@ async fn html_to_pdf(html: String) -> Result<Vec<u8>, Box<dyn Error>> {
 
     tracing::info!("generate pdf from html page {page}");
     let pdf = tokio::task::block_in_place(|| {
-        // one chromium tab shared by every request: one rendering at a time, otherwise
-        // a navigation can replace the page another request is printing
-        let _guard = RENDER_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let tab = get_chromium_tab().map_err(ServiceError::new)?;
-        if let Some(media) = pdf_media() {
-            tab.call_method(SetEmulatedMedia {
-                media: Some(media),
-                features: None,
-            })
-            .map_err(ServiceError::new)?;
-        }
-
-        tab.navigate_to(&page)
-            .map_err(ServiceError::new)?
-            .wait_until_navigated()
-            .map_err(ServiceError::new)?
-            .print_to_pdf(Some(pdf_options()))
-            .map_err(ServiceError::new)
+        with_chromium(|tab| {
+            if let Some(media) = pdf_media() {
+                tab.call_method(SetEmulatedMedia {
+                    media: Some(media),
+                    features: None,
+                })?;
+            }
+            Ok(tab
+                .navigate_to(&page)?
+                .wait_until_navigated()?
+                .print_to_pdf(Some(pdf_options()))?)
+        })
+        // not kept as Box<dyn Error> across the await below (not Send)
+        .map_err(ServiceError::new)
     });
     // removed whatever the outcome
     if let Err(e) = tokio::fs::remove_file(&temp_html_file_path).await {
@@ -293,141 +310,165 @@ fn pdf_media() -> Option<String> {
     (!media.is_empty()).then(|| media.to_string())
 }
 
-pub fn get_chromium_tab() -> Result<Arc<Tab>, Box<dyn Error>> {
-    match CHROMIUM_TAB.get() {
-        Some((_, tab, _)) => Ok(tab.clone()),
-        None => {
-            let data_dir = TMP_FS_PATH.join(IdGenerator.get());
-            std::fs::create_dir_all(&data_dir)?;
-
-            if let Some(true) = std::env::var("CLEARING_CHROMIUM_USER_DATA_DIR")
-                .map(|p| p.trim().to_lowercase().parse::<bool>().ok())
-                .iter()
-                .flatten()
-                .next()
-            {
-                let cleanup_dir = data_dir.clone();
-                let handle = tokio::runtime::Handle::current();
-                handle.spawn(async move {
-                            loop {
-                                tracing::info!("starting next clearing procedure of the chrome user data dir");
-                                let now = Local::now();
-                                let tomorrow_midnight = (now + chrono::Duration::days(1))
-                                    .date_naive()
-                                    .and_hms_opt(0, 0, 0)
-                                    .unwrap()
-                                    .and_local_timezone(Local)
-                                    .unwrap();
-
-                                let duration_until_midnight = (tomorrow_midnight - now).to_std().unwrap();
-
-                                let sleep_time = Instant::now() + duration_until_midnight;
-
-                                tracing::info!(
-                                    "chromium --user-data-dir (tmpfs): next clearing schedule is {tomorrow_midnight}, data_dir: {cleanup_dir:?}",
-                                );
-                                sleep_until(sleep_time).await;
-                                tracing::info!(
-                                    "clearing the chromium user data dir, this might be messy! {:?}",
-                                    tokio::fs::remove_dir_all(&cleanup_dir).await
-                                );
-                                tracing::info!(
-                                    "recreate dir {:?}",
-                                    tokio::fs::create_dir_all(&cleanup_dir).await
-                                );
-                            }
-                        });
+/// Runs `f` with the shared chromium tab, launching chromium first if needed. When the call fails
+/// because chromium (or the tab) is gone, e.g. a crashed renderer: "No session with given id", the
+/// instance is thrown away and `f` is retried once on a freshly launched one. Before, the dead tab
+/// was kept forever and every rendering failed until the service was restarted.
+fn with_chromium<T>(f: impl Fn(&Tab) -> Result<T, Box<dyn Error>>) -> Result<T, Box<dyn Error>> {
+    let mut chromium = lock_chromium();
+    for attempt in 1..=2 {
+        if chromium.is_none() {
+            *chromium = Some(launch_chromium()?);
+        }
+        let Some(current) = chromium.as_ref() else {
+            unreachable!("chromium launched above")
+        };
+        match f(current.tab.as_ref()) {
+            Ok(value) => return Ok(value),
+            Err(e) if attempt == 1 && is_broken(current, e.as_ref()) => {
+                tracing::warn!("chromium is broken ({e}), relaunching it and trying again");
+                // drop: closes chromium and deletes its user data dir
+                *chromium = None;
             }
-            let user_data_dir = OsString::from(format!("--user-data-dir={}", data_dir.display()));
-            let sandboxed = std::env::var(CHROMIUM_SANDBOXED)
-                .map(|v| v.parse::<bool>().unwrap_or(false))
-                .unwrap_or(false);
-            let options = LaunchOptionsBuilder::default()
-                .sandbox(sandboxed)
-                //.fetcher_options(FetcherOptions::default().with_rRevision, evision(Revision::Latest))
-                .idle_browser_timeout(Duration::MAX)
-                .args(vec![
-                    OsStr::new("--disable-web-security"),
-                    OsStr::new("--no-zygote"),
-                    OsStr::new("--no-first-run"),
-                    //  OsStr::new("--disable-setuid-sandbox"),
-                    OsStr::new("--allow-file-access-from-files"),
-                    OsStr::new("--enable-features=NetworkService,NetworkServiceInProcess"),
-                    OsStr::new("--enable-local-file-accesses"),
-                    OsStr::new("--disable-pdf-tagging"),
-                    OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
-                    OsStr::new("--default-background-color=00000000"),
-                    OsStr::new("--disable-dev-shm-usage"),
-                    &user_data_dir,
-                ])
-                .build()
-                .map_err(|e| format!("invalid options: {e}"))?;
-
-            tracing::info!("chromium opts: {options:?}");
-
-            let browser = Browser::new(options)?;
-            std::thread::sleep(Duration::from_secs(2));
-            tracing::info!("we got a browser: {:?}", browser.get_process_id());
-            for attempt in 1..=10 {
-                match browser.get_version() {
-                    Ok(version) => {
-                        tracing::info!("browser ready: {}", version.product);
-                        break;
-                    }
-                    Err(e) if attempt < 10 => {
-                        tracing::warn!("waiting for browser (attempt {}): {}", attempt, e);
-                        std::thread::sleep(Duration::from_millis(500));
-                    }
-                    Err(e) => {
-                        return Err(format!("browser not ready after 10 attempts: {}", e).into());
-                    }
-                }
-            }
-
-            let tab = match browser.new_tab() {
-                Ok(t) => t,
-                Err(e) => {
-                    tracing::error!("failed to create tab: {}", e);
-                    return Err(e.into());
-                }
-            };
-
-            // Wait for tab to be ready
-            std::thread::sleep(Duration::from_millis(200));
-
-            tab.activate()?;
-            tracing::info!("tab activated successfully");
-
-            tracing::info!("we got a tab");
-
-            CHROMIUM_TAB
-                .set((browser, tab.clone(), data_dir))
-                .map_err(|_tab| "could not setup chromium tab".to_string())?;
-            Ok(tab)
+            Err(e) => return Err(e),
         }
     }
+    unreachable!("the second attempt always returns")
 }
 
-impl Deref for ChromiumTab {
-    type Target = OnceLock<(headless_chrome::Browser, Arc<headless_chrome::Tab>, PathBuf)>;
+fn lock_chromium() -> MutexGuard<'static, Option<Chromium>> {
+    CHROMIUM
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+/// The error comes from a dead tab / browser rather than from the page being rendered
+fn is_broken(chromium: &Chromium, e: &dyn Error) -> bool {
+    let msg = e.to_string().to_lowercase();
+    [
+        "no session",
+        "no target",
+        "closed",
+        "connection",
+        "disconnected",
+        "channel",
+    ]
+    .iter()
+    .any(|m| msg.contains(m))
+        || chromium.browser.get_version().is_err()
+}
+
+/// CLEARING_CHROMIUM_USER_DATA_DIR: every night, chromium is closed and its user data dir deleted,
+/// the next rendering relaunches it with a fresh one. Before, the dir was deleted under the running
+/// chromium, which could leave it (and every following rendering) broken.
+fn schedule_clearing() {
+    let enabled = var("CLEARING_CHROMIUM_USER_DATA_DIR")
+        .ok()
+        .and_then(|p| p.trim().to_lowercase().parse::<bool>().ok())
+        .unwrap_or(false);
+    if !enabled {
+        return;
     }
+    CLEARING_SCHEDULED.call_once(|| {
+        tokio::spawn(async move {
+            loop {
+                let now = Local::now();
+                let tomorrow_midnight = (now + chrono::Duration::days(1))
+                    .date_naive()
+                    .and_hms_opt(0, 0, 0)
+                    .and_then(|d| d.and_local_timezone(Local).earliest())
+                    .unwrap_or(now + chrono::Duration::days(1));
+                let duration_until_midnight = (tomorrow_midnight - now)
+                    .to_std()
+                    .unwrap_or(Duration::from_secs(24 * 3600));
+                tracing::info!(
+                    "chromium --user-data-dir (tmpfs): next clearing schedule is {tomorrow_midnight}"
+                );
+                sleep_until(Instant::now() + duration_until_midnight).await;
+                let cleared = tokio::task::spawn_blocking(|| {
+                    // waits for the rendering in progress, if any
+                    lock_chromium().take().is_some()
+                })
+                .await;
+                tracing::info!("chromium closed and its user data dir cleared: {cleared:?}");
+            }
+        });
+    });
 }
-impl Drop for ChromiumTab {
-    fn drop(&mut self) {
-        if let Some((browser, tab, pb)) = self.0.take() {
-            tracing::info!("closing tab result: {:?}", tab.close(true));
-            drop(tab);
-            drop(browser);
-            tracing::info!(
-                "deleting user data folder (chromium) {:?}",
-                std::fs::remove_dir_all(pb)
-            );
+
+fn launch_chromium() -> Result<Chromium, Box<dyn Error>> {
+    let data_dir = TMP_FS_PATH.join(IdGenerator.get());
+    std::fs::create_dir_all(&data_dir)?;
+
+    let user_data_dir = OsString::from(format!("--user-data-dir={}", data_dir.display()));
+    let sandboxed = std::env::var(CHROMIUM_SANDBOXED)
+        .map(|v| v.parse::<bool>().unwrap_or(false))
+        .unwrap_or(false);
+    let options = LaunchOptionsBuilder::default()
+        .sandbox(sandboxed)
+        //.fetcher_options(FetcherOptions::default().with_rRevision, evision(Revision::Latest))
+        .idle_browser_timeout(Duration::MAX)
+        .args(vec![
+            OsStr::new("--disable-web-security"),
+            OsStr::new("--no-zygote"),
+            OsStr::new("--no-first-run"),
+            //  OsStr::new("--disable-setuid-sandbox"),
+            OsStr::new("--allow-file-access-from-files"),
+            OsStr::new("--enable-features=NetworkService,NetworkServiceInProcess"),
+            OsStr::new("--enable-local-file-accesses"),
+            OsStr::new("--disable-pdf-tagging"),
+            OsStr::new("--disable-features=IsolateOrigins,site-per-process"),
+            OsStr::new("--default-background-color=00000000"),
+            OsStr::new("--disable-dev-shm-usage"),
+            &user_data_dir,
+        ])
+        .build()
+        .map_err(|e| format!("invalid options: {e}"))?;
+
+    tracing::info!("chromium opts: {options:?}");
+
+    let browser = Browser::new(options)?;
+    std::thread::sleep(Duration::from_secs(2));
+    tracing::info!("we got a browser: {:?}", browser.get_process_id());
+    for attempt in 1..=10 {
+        match browser.get_version() {
+            Ok(version) => {
+                tracing::info!("browser ready: {}", version.product);
+                break;
+            }
+            Err(e) if attempt < 10 => {
+                tracing::warn!("waiting for browser (attempt {}): {}", attempt, e);
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            Err(e) => {
+                return Err(format!("browser not ready after 10 attempts: {}", e).into());
+            }
         }
     }
+
+    let tab = match browser.new_tab() {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::error!("failed to create tab: {}", e);
+            return Err(e.into());
+        }
+    };
+
+    // Wait for tab to be ready
+    std::thread::sleep(Duration::from_millis(200));
+
+    tab.activate()?;
+    tracing::info!("tab activated successfully");
+
+    tracing::info!("we got a tab");
+
+    Ok(Chromium {
+        browser,
+        tab,
+        data_dir,
+    })
 }
+
 #[cfg(test)]
 mod test {
     use std::error::Error;
